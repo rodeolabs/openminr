@@ -20,10 +20,29 @@ export interface IntelReport {
 
 /**
  * Standardized persistence layer for all intelligence sources.
- * Handles deduplication and atomic insertion of incidents and their supporting reports.
+ * Handles deduplication and mission-aware tag merging.
  */
 export async function persistIncident(incident: TacticalIncident, reports: IntelReport[]) {
-  // 1. Insert or Skip Duplicate
+  // 1. Check for existing incident by source_hash
+  const { data: existing } = await supabase
+    .from('incidents')
+    .select('id, tags')
+    .eq('source_hash', incident.source_hash)
+    .maybeSingle();
+
+  if (existing) {
+    // Merge tags to link this incident to the current mission without duplication
+    const mergedTags = Array.from(new Set([...(existing.tags || []), ...(incident.tags || [])]));
+    
+    await supabase
+      .from('incidents')
+      .update({ tags: mergedTags, updated_at: new Date().toISOString() })
+      .eq('id', existing.id);
+      
+    return { success: true, incident: { ...existing, tags: mergedTags }, duplicate: true };
+  }
+
+  // 2. Insert New Incident
   const { data: newIncident, error: incError } = await supabase
     .from('incidents')
     .insert({
@@ -41,12 +60,9 @@ export async function persistIncident(incident: TacticalIncident, reports: Intel
     .select()
     .single();
 
-  if (incError) {
-    if (incError.code === '23505') return { success: false, duplicate: true };
-    throw incError;
-  }
+  if (incError) throw incError;
 
-  // 2. Insert Supporting Intel Reports
+  // 3. Insert Supporting Intel Reports
   if (reports.length > 0) {
     const reportsToInsert = reports.map(r => ({
       incident_id: newIncident.id,
@@ -55,11 +71,7 @@ export async function persistIncident(incident: TacticalIncident, reports: Intel
       metadata: r.metadata ?? {}
     }));
 
-    const { error: repError } = await supabase
-      .from('intel_reports')
-      .insert(reportsToInsert);
-
-    if (repError) console.error('[PERSISTENCE] Failed to insert intel reports:', repError);
+    await supabase.from('intel_reports').insert(reportsToInsert);
   }
 
   return { success: true, incident: newIncident };

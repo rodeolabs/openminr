@@ -39,8 +39,7 @@ export async function queryGrokLiveSearch(keywords: string[]): Promise<GrokIntel
       input: [
         {
           role: 'user', 
-          content: `MISSION: Search X.com for the 5 most significant REAL-WORLD tactical breaking news events from the last 2 hours.
-            Focus on: Ukraine frontline, Cyber attacks, and Civil unrest. Return pure JSON.`
+          content: `MISSION: Search X.com for the 5 most significant REAL-WORLD tactical breaking news events related to: ${keywords.join(', ')} from the last 2 hours. Return pure JSON.`
         }
       ],
       text: {
@@ -90,7 +89,6 @@ export async function queryGrokLiveSearch(keywords: string[]): Promise<GrokIntel
   });
 
   if (!response.ok) throw new Error(`Grok API failed: ${response.statusText}`);
-
   const data = await response.json();
   const rawContent = data.output[data.output.length - 1]?.content[0]?.text;
   
@@ -107,18 +105,26 @@ function generateDedupHash(incident: GrokIntelResult['incidents'][0]): string {
   return `grok:${crypto.createHash('sha256').update(content).digest('hex').slice(0, 16)}`;
 }
 
-export async function ingestFromGrokLive(keywords: string[]) {
+/**
+ * Ingest from Grok Live Search.
+ * keywords: The terms to search for.
+ * missionId: (Optional) The UUID of the mission that triggered this search.
+ */
+export async function ingestFromGrokLive(keywords: string[], missionId?: string) {
   const result = await queryGrokLiveSearch(keywords);
   const stats = { processed: 0, inserted: 0, duplicates: 0, errors: 0 };
 
   for (const incident of result.incidents || []) {
     stats.processed++;
     try {
+      // Tags include the mission ID if provided
+      const tags = missionId ? [`mission:${missionId}`] : [];
+      
       const { success, duplicate } = await persistIncident(
         {
           ...incident,
           source_hash: incident.dedup_key || generateDedupHash(incident),
-          tags: keywords
+          tags
         },
         incident.source_posts.map(p => ({
           source: `X.com/@${p.author}`,

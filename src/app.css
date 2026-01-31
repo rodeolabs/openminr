@@ -50,4 +50,15 @@
   .severity-3 { @apply border-l-2 border-l-yellow-400 bg-yellow-950/5; }
   .severity-4 { @apply border-l-2 border-l-blue-400 bg-blue-950/5; }
   .severity-5 { @apply border-l-2 border-l-zinc-500 bg-zinc-950/5; }
+
+  /* Domain-Specific Styling */
+  .domain-cyber { @apply text-emerald-400 border-emerald-500/50 bg-emerald-950/20; }
+  .domain-kinetic { @apply text-amber-500 border-amber-500/50 bg-amber-950/20; }
+  .domain-geopolitical { @apply text-indigo-400 border-indigo-500/50 bg-indigo-950/20; }
+  .domain-critical { @apply text-rose-500 border-rose-500/50 bg-rose-950/20 animate-pulse; }
+
+  /* Tactical HUD Utilities */
+  .hud-panel { @apply bg-brand-dark/95 backdrop-blur-md border-r border-brand-border h-full flex flex-col; }
+  .hud-header { @apply h-12 border-b border-brand-border flex items-center px-4 font-mono text-xs uppercase tracking-wider text-brand-muted; }
+  .hud-content { @apply flex-1 overflow-y-auto overflow-x-hidden p-0; }
 }

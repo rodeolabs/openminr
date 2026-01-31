@@ -4,18 +4,10 @@ import { ingestGDACS } from '$lib/server/ingestion/gdacs';
 import { ingestFromGrokLive } from '$lib/server/ingestion/grok-live';
 
 /**
- * Cron Job: Tactical Intelligence Ingestion Pipeline
- * 
- * Orchestrates the periodic gathering of intelligence from multiple sources.
- * Architecture:
- * 1. PRIMARY: Grok Live Search (real-time X.com intelligence) - High fidelity, real-time.
- * 2. SECONDARY: GDACS (authoritative disaster data) - Slow but high confidence.
- * 
- * Invoked by external cron service (e.g. GitHub Actions, Vercel Cron) or internal "System Online" loop.
+ * Mission-Based Ingestion Pipeline
+ * Loops through all active tactical missions and executes optimized search strategies.
  */
-
 export async function GET({ url }: RequestEvent) {
-  // Security: Simple secret key authentication for the cron trigger
   const secret = url.searchParams.get('secret');
   const force = url.searchParams.get('force') === 'true';
   
@@ -23,107 +15,45 @@ export async function GET({ url }: RequestEvent) {
     return json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  // Operational Safety: Check the centralized "kill switch" in the database
-  // to ensure ingestion only runs when the system is actively monitoring.
-  if (!force) {
-    const { data } = await supabase
-      .from('system_config')
-      .select('value, updated_at')
-      .eq('key', 'ingestion_status')
-      .single();
-      
-    if (!data?.value?.enabled) {
-        console.log('[INGEST] Skipped: Ingestion disabled by operator.');
-        return json({ skipped: true, reason: 'Ingestion disabled' });
-    }
+  // 1. Check System Global State
+  const { data: config } = await supabase.from('system_config').select('value').eq('key', 'ingestion_status').single();
+  if (!force && !config?.value?.enabled) return json({ skipped: true, reason: 'System paused' });
 
-    // Rate Limiting: Enforce a 60-second cooldown to respect API quotas and system load.
-    const lastRun = data.value.last_run_at ? new Date(data.value.last_run_at).getTime() : 0;
-    const now = Date.now();
-    if (now - lastRun < 60000) {
-        console.log('[INGEST] Skipped: Cooldown active (Last run < 60s ago)');
-        return json({ skipped: true, reason: 'Cooldown active' });
-    }
-
-    // Update timestamp to lock the process immediately
-    await supabase
-      .from('system_config')
-      .update({ value: { ...data.value, last_run_at: new Date().toISOString() } })
-      .eq('key', 'ingestion_status');
+  // 2. Fetch Active Missions
+  const { data: missions } = await supabase.from('missions').select('*').eq('status', 'active');
+  
+  if (!missions?.length) {
+    console.log('[INGEST] No active missions found.');
+    return json({ success: true, message: 'No active missions' });
   }
 
-  const results: Record<string, any> = {
-    pipeline_version: '2.0-grok-centric',
-    timestamp: new Date().toISOString()
-  };
+  const results: any = { timestamp: new Date().toISOString(), missions_processed: 0, sources: {} };
 
+  // 3. Process Missions
+  for (const mission of missions) {
+    console.log(`[INGEST] Executing Mission: ${mission.name}`);
+    
+    // PRIMARY: Grok Live Search
+    try {
+      const keywords = mission.keywords as string[];
+      const r = await ingestFromGrokLive(keywords, mission.id);
+      results.sources[mission.name] = { status: 'success', new: r.stats.inserted };
+      results.missions_processed++;
+    } catch (e: any) {
+      console.error(`[INGEST] Mission ${mission.name} failed:`, e);
+      results.sources[mission.name] = { status: 'failed', error: e.message };
+    }
+    
+    await new Promise(r => setTimeout(r, 1000));
+  }
+
+  // 4. SECONDARY: Global Official Sources (GDACS)
   try {
-    console.log('[INGEST] Starting Grok-Centric Intelligence Pipeline...');
-
-    // Dynamic Targeting: Fetch active keywords from the operator-managed Watchlist.
-    // This allows analysts to retarget the system in real-time without code deployment.
-    const { data: watchlists } = await supabase
-      .from('watchlists')
-      .select('keyword, category')
-      .eq('active', true);
-    
-    // Fallback default keywords if watchlist is empty
-    const keywords = watchlists?.map(w => w.keyword) || [
-      'breaking military',
-      'explosion attack',
-      'infrastructure failure',
-      'cyber attack',
-      'protest riot'
-    ];
-    
-    console.log(`[INGEST] Active watchlist: ${keywords.join(', ')}`);
-
-    // Execution: Run ingestion modules sequentially to manage concurrent connection limits.
-    
-    // 1. Grok Live Search (Primary)
-    try {
-        const r = await ingestFromGrokLive(keywords);
-        results.grok_live = {
-            status: 'success',
-            new_incidents: r.stats.inserted,
-            duplicates: r.stats.duplicates,
-            errors: r.stats.errors,
-            metadata: r.metadata
-        };
-    } catch (e: any) {
-        console.error('[INGEST] Grok Live failed:', e);
-        results.grok_live = { status: 'failed', error: e.message };
-    }
-
-    // Short delay to allow DB connections to settle
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // 2. GDACS (Secondary)
-    try {
-        await ingestGDACS();
-        results.gdacs = { status: 'success' };
-    } catch (e: any) {
-        console.error('[INGEST] GDACS failed:', e);
-        results.gdacs = { status: 'failed', error: e.message };
-    }
-    
-    const allFailed = results.grok_live?.status === 'failed' && results.gdacs?.status === 'failed';
-    
-    console.log('[INGEST] Pipeline complete:', JSON.stringify(results, null, 2));
-    
-    return json({ 
-      success: !allFailed, 
-      results 
-    }, { 
-      status: allFailed ? 500 : 200 
-    });
-
-  } catch (error: any) {
-    console.error('[INGEST] Critical pipeline failure:', error);
-    return json({ 
-      success: false, 
-      error: error.message || 'Unknown error',
-      results 
-    }, { status: 500 });
+    await ingestGDACS();
+    results.gdacs = 'success';
+  } catch (e: any) {
+    results.gdacs = 'failed';
   }
+
+  return json({ success: true, results });
 }

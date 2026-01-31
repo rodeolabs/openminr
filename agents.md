@@ -30,4 +30,4 @@ OpenMinr is a high-integrity, real-time event detection and alerting platform.
 - **Standardized Ingestion**: Always use `persistIncident` from `lib/server/ingestion/persistence.ts`.
 - **System Store**: Access global states (Sync, Online, Notifications) via the `system` store in `lib/system.svelte.ts`.
 - **Structured AI**: Always use `json_schema` response format for AI calls. Never rely on raw text parsing or JSON Mode hacks.
-- **Tactical UI**: Adhere to the `--color-brand-*` CSS variable set. Use `tactical-scan` and `tactical-grid` classes for high-integrity visual consistency.
+- **Tactical UI**: Adhere to the design system specified in `DESIGN_SYSTEM.md`. Use `tactical-scan` and `tactical-grid` classes for high-integrity visual consistency.
