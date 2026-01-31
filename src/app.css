@@ -1,0 +1,53 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-dark: #050506;
+  --color-brand-surface: #0d0d0f;
+  --color-brand-border: #1a1a1c;
+  --color-brand-accent: #ff3e3e;
+  --color-brand-muted: #52525b;
+}
+
+@layer base {
+  body {
+    @apply bg-brand-dark text-zinc-100 antialiased selection:bg-brand-accent selection:text-white;
+  }
+}
+
+/* Tactical Scanning Line Animation */
+@keyframes scanline {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100vh); }
+}
+
+.tactical-scan::after {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 62, 62, 0.2), transparent);
+  animation: scanline 8s linear infinite;
+  pointer-events: none;
+  z-index: 50;
+}
+
+/* Custom Scrollbar - Minimal & Discrete */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #1a1a1c; border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: #27272a; }
+
+/* Grid Background for Map/UI */
+.tactical-grid {
+  background-image: 
+    linear-gradient(rgba(26, 26, 28, 0.4) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(26, 26, 28, 0.4) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+@layer components {
+  .severity-1 { @apply border-l-2 border-l-red-600 bg-red-950/5; }
+  .severity-2 { @apply border-l-2 border-l-orange-500 bg-orange-950/5; }
+  .severity-3 { @apply border-l-2 border-l-yellow-400 bg-yellow-950/5; }
+  .severity-4 { @apply border-l-2 border-l-blue-400 bg-blue-950/5; }
+  .severity-5 { @apply border-l-2 border-l-zinc-500 bg-zinc-950/5; }
+}
