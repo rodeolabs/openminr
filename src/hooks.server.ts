@@ -25,14 +25,15 @@ export const handle: Handle = async ({ event, resolve }) => {
 		'Permissions-Policy': 'camera=(), microphone=(), geolocation=(self), interest-cohort=()',
 		
 		// Content Security Policy (CSP)
-		// Allows: Self, Supabase, CartoDB Maps, XAI API
+		// Allows: Self, Supabase, CartoDB Maps, WebSocket, Workers, XAI API
 		'Content-Security-Policy': [
 			"default-src 'self'",
-			"script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+			"script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:",
 			"style-src 'self' 'unsafe-inline'",
 			"img-src 'self' data: blob: https://*.cartocdn.com https://*.basemaps.cartocdn.com",
 			"font-src 'self' data:",
-			"connect-src 'self' http://localhost:54321 https://*.supabase.co wss://*.supabase.co https://api.x.ai",
+			"connect-src 'self' http://localhost:54321 https://localhost:54321 ws://localhost:54321 wss://localhost:54321 https://*.supabase.co wss://*.supabase.co https://api.x.ai https://*.cartocdn.com https://*.basemaps.cartocdn.com",
+			"worker-src 'self' blob:",
 			"frame-ancestors 'none'",
 			"base-uri 'self'",
 			"form-action 'self'"
