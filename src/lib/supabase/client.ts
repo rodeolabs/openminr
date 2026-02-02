@@ -25,15 +25,21 @@ console.log('SUPABASE_CLIENT_URL:', supabaseUrl);
 // CRITICAL: No hardcoded fallbacks allowed per AGENTS.md policy
 const supabaseKey = import.meta.env.VITE_SUPABASE_KEY;
 
-if (!supabaseKey && browser) {
-  throw new Error(
+// Validation: Required environment variable must be set
+if (!supabaseKey) {
+  const error = new Error(
     '[SECURITY VIOLATION] VITE_SUPABASE_KEY environment variable is required. ' +
-    'Hardcoded credentials are strictly prohibited per AGENTS.md. ' +
+    'Hardcoded credentials are strictly prohibited per AGENTS.md section 6. ' +
     'Set the key in your .env.local file or deployment environment.'
   );
+  
+  if (browser) {
+    // In browser, throw immediately to prevent app from running with missing config
+    throw error;
+  } else {
+    // During SSR, log error but don't throw (to prevent build failures)
+    console.error(error.message);
+  }
 }
 
-// For SSR, use a dummy key (server-side operations should use service role key)
-const clientKey = supabaseKey || 'dummy-key-for-ssr-only';
-
-export const supabase = createClient(supabaseUrl, clientKey);
+export const supabase = createClient(supabaseUrl, supabaseKey || '');
