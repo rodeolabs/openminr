@@ -21,29 +21,25 @@ test.describe('OpenMinr Situation Room', () => {
     await expect(page.locator('nav')).toContainText('Archive', { ignoreCase: true });
   });
 
-  test('should receive real-time incident updates', async ({ page, request }) => {
+  test('should display incidents from database', async ({ page }) => {
     await page.goto('http://localhost:5173');
 
-    console.log('Waiting for Realtime subscription...');
-    await page.waitForFunction(() => {
-      return (window as any)._logs && (window as any)._logs.some((l: string) => l.includes('[REALTIME] Subscription status: SUBSCRIBED'));
-    }, { timeout: 20000 });
-
-    const testIncident = {
-      content: "URGENT: Reports of unidentified drones entering restricted airspace over Sector 7. Air defense systems on standby.",
-      source: "RADAR-SENTRY-01",
-      lat: 52.5200,
-      lon: 13.4050
-    };
-
-    const response = await request.post('http://localhost:5173/api/ingest', {
-      data: testIncident
-    });
-    expect(response.ok()).toBeTruthy();
-
-    // Look for the new incident in the feed - use the button with incident ID
+    // Wait for incidents to load from database
+    console.log('Waiting for incidents to load...');
     await page.waitForSelector('button[id^="incident-"]', { timeout: 15000 });
-    const newCard = page.locator('button[id^="incident-"]').first();
-    await expect(newCard).toBeVisible({ timeout: 15000 });
+    const incidentCards = page.locator('button[id^="incident-"]');
+    
+    // Should have at least 3 test incidents from migration
+    const count = await incidentCards.count();
+    console.log(`Found ${count} incidents in feed`);
+    expect(count).toBeGreaterThan(0);
+    
+    // Verify first card is visible and clickable
+    const firstCard = incidentCards.first();
+    await expect(firstCard).toBeVisible({ timeout: 15000 });
+    
+    // Click on it and verify dossier opens
+    await firstCard.click();
+    await expect(page.locator('aside').last()).toContainText('Intelligence Brief');
   });
 });

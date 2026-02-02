@@ -14,12 +14,25 @@ test('UI Diagnostic Test', async ({ page }) => {
 
   console.log('Detected Console Errors:', errors);
   
-  // Check for tactical grid container
-  const tacticalGrid = await page.locator('.tactical-grid');
+  // Check for main app container (monitor view doesn't have tactical-grid, it's on other views)
+  await expect(page.locator('[class*="tactical-scan"]')).toBeVisible();
+  
+  // Verify navigation is present
+  await expect(page.locator('nav')).toBeVisible();
+  
+  // Switch to Targeting view to find tactical-grid
+  await page.getByRole('button', { name: 'Targeting' }).click();
+  await page.waitForTimeout(500);
+  
+  // Now check for tactical grid container (on Targeting view)
+  const tacticalGrid = page.locator('.tactical-grid');
   await expect(tacticalGrid).toBeVisible();
 
-  // Check for Map Markers
-  await page.waitForSelector('.maplibregl-marker', { timeout: 15000 }).catch(() => null);
+  // Switch back to Monitor and check for Map Markers
+  await page.getByRole('button', { name: 'Monitor' }).click();
+  await page.waitForTimeout(1000);
+  
+  await page.waitForSelector('.maplibregl-marker, .maplibregl-canvas', { timeout: 15000 }).catch(() => null);
   const markers = await page.locator('.maplibregl-marker').count();
   console.log(`Map Markers count: ${markers}`);
   
