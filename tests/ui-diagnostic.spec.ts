@@ -29,7 +29,7 @@ test('UI Diagnostic Test', async ({ page }) => {
   await expect(tacticalGrid).toBeVisible();
 
   // Switch back to Monitor and check for Map Markers
-  await page.getByRole('button', { name: 'Monitor' }).click();
+  await page.getByRole('button', { name: 'Monitor', exact: true }).click();
   await page.waitForTimeout(1000);
   
   await page.waitForSelector('.maplibregl-marker, .maplibregl-canvas', { timeout: 15000 }).catch(() => null);

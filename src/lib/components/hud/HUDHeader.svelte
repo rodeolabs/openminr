@@ -43,7 +43,7 @@
             </div>
             <div class="flex flex-col">
                 <span class="text-body-sm font-black uppercase tracking-widest leading-none text-white">OpenMinr</span>
-                <span class="text-label-sm font-mono text-zinc-500 uppercase tracking-[0.2em] leading-none mt-1">Tactical OS</span>
+                <span class="text-label-sm font-mono text-zinc-500 uppercase tracking-[0.2em] leading-none mt-1">Situational Awareness</span>
             </div>
         </div>
     </div>
