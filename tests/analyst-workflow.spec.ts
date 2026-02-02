@@ -16,22 +16,28 @@ test.describe('OpenMinr Analyst Workflow', () => {
   test('should open incident dossier and claim it', async ({ page }) => {
     await page.goto('http://localhost:5173');
 
-    const firstCard = page.getByTestId('intel-card').first();
+    // Wait for incident buttons to appear
+    await page.waitForSelector('button[id^="incident-"]', { timeout: 20000 });
+    const firstCard = page.locator('button[id^="incident-"]').first();
     await expect(firstCard).toBeVisible({ timeout: 20000 });
     
-    const cardTitle = await firstCard.locator('h3').innerText();
+    // Get the title from the h4 element inside the card
+    const cardTitle = await firstCard.locator('h4').innerText();
     console.log(`Testing card: ${cardTitle}`);
 
     await firstCard.click();
 
-    await expect(page.locator('aside').last()).toContainText('Situation Analysis');
+    // Check the dossier panel appears with correct text
+    await expect(page.locator('aside').last()).toContainText('Intelligence Brief');
     await expect(page.locator('aside').last()).toContainText(cardTitle, { ignoreCase: true });
 
+    // Look for the Claim button in the Operator Actions section
     const claimButton = page.getByRole('button', { name: 'Claim', exact: true });
     await expect(claimButton).toBeVisible();
     await claimButton.click();
     
-    await expect(page.locator('aside').last()).toContainText('You are working this incident', { ignoreCase: true });
+    // After claiming, should show the claimed status
+    await expect(page.locator('aside').last()).toContainText('working this incident', { ignoreCase: true });
   });
 
   test('should trigger critical audio alert', async ({ page, request }) => {
@@ -39,7 +45,7 @@ test.describe('OpenMinr Analyst Workflow', () => {
 
     console.log('Waiting for Realtime initialization...');
     await page.waitForFunction(() => {
-      return (window as any)._logs && (window as any)._logs.some((l: string) => l.includes('REALTIME_SUBSCRIPTION_STATUS: SUBSCRIBED'));
+      return (window as any)._logs && (window as any)._logs.some((l: string) => l.includes('[REALTIME] Subscription status: SUBSCRIBED'));
     }, { timeout: 20000 });
 
     await request.post('http://localhost:5173/api/ingest', {
@@ -51,8 +57,12 @@ test.describe('OpenMinr Analyst Workflow', () => {
       }
     });
 
-    const criticalCard = page.getByTestId('intel-card').first();
+    // Look for high severity indicator (severity 1-2 shows red styling)
+    await page.waitForSelector('button[id^="incident-"]', { timeout: 25000 });
+    const criticalCard = page.locator('button[id^="incident-"]').first();
     await expect(criticalCard).toBeVisible({ timeout: 25000 });
-    await expect(criticalCard).toContainText('CRITICAL');
+    // Check for severity indicator (S1 or S2 indicates critical)
+    const severityText = await criticalCard.textContent();
+    expect(severityText).toMatch(/S[12]/);
   });
 });

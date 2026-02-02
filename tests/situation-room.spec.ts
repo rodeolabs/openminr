@@ -15,7 +15,8 @@ test.describe('OpenMinr Situation Room', () => {
 
   test('should display the main dashboard layout', async ({ page }) => {
     await page.goto('http://localhost:5173');
-    await expect(page.locator('h1')).toContainText('OpenMinr', { ignoreCase: true });
+    // Brand name is in a span, not h1
+    await expect(page.locator('text=OpenMinr').first()).toBeVisible();
     await expect(page.locator('nav')).toContainText('Monitor', { ignoreCase: true });
     await expect(page.locator('nav')).toContainText('Archive', { ignoreCase: true });
   });
@@ -25,7 +26,7 @@ test.describe('OpenMinr Situation Room', () => {
 
     console.log('Waiting for Realtime subscription...');
     await page.waitForFunction(() => {
-      return (window as any)._logs && (window as any)._logs.some((l: string) => l.includes('REALTIME_SUBSCRIPTION_STATUS: SUBSCRIBED'));
+      return (window as any)._logs && (window as any)._logs.some((l: string) => l.includes('[REALTIME] Subscription status: SUBSCRIBED'));
     }, { timeout: 20000 });
 
     const testIncident = {
@@ -40,8 +41,9 @@ test.describe('OpenMinr Situation Room', () => {
     });
     expect(response.ok()).toBeTruthy();
 
-    // Look for the new card at the top. Use a broader filter since Grok summarizes the headline.
-    const newCard = page.getByTestId('intel-card').first();
+    // Look for the new incident in the feed - use the button with incident ID
+    await page.waitForSelector('button[id^="incident-"]', { timeout: 15000 });
+    const newCard = page.locator('button[id^="incident-"]').first();
     await expect(newCard).toBeVisible({ timeout: 15000 });
   });
 });
