@@ -1,6 +1,8 @@
 import { browser } from '$app/environment';
 import { supabase } from '$lib/supabase/client';
+import { subscribeToIncidents, type RealtimeSubscription } from '$lib/supabase/realtime';
 import { system } from './system.svelte';
+import { CONFIG } from './config';
 import type { Incident } from '$lib/types';
 
 class IncidentStore {
@@ -9,6 +11,9 @@ class IncidentStore {
     selectedId = $state<string | null>(null);
     filterDomain = $state<string | null>(null); 
     filterMissionId = $state<string | null>(null);
+
+    // Realtime subscription for cleanup
+    private realtimeSub: RealtimeSubscription | null = null;
 
     // Derived State
     filtered = $derived.by(() => {
@@ -33,31 +38,48 @@ class IncidentStore {
     }
 
     async init() {
-        const { data } = await supabase
-            .from('incidents')
-            .select('*')
-            .order('created_at', { ascending: false })
-            .limit(100);
-        
-        if (data) this.all = data as Incident[];
+        try {
+            const { data, error } = await supabase
+                .from('incidents')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(CONFIG.DATABASE.INITIAL_FEED_LIMIT);
+            
+            if (error) {
+                console.error('[INCIDENT_STORE] Failed to load incidents:', error);
+                system.notify('Failed to load incidents', 'error');
+                return;
+            }
+            
+            if (data) this.all = data as Incident[];
 
-        supabase
-            .channel('tactical-incidents')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'incidents' }, (payload) => {
-                this.handleRealtime(payload);
-            })
-            .subscribe();
+            // Use the realtime wrapper for proper subscription management
+            this.realtimeSub = subscribeToIncidents(
+                (payload) => this.handleInsert(payload),
+                (payload) => this.handleUpdate(payload),
+                (payload) => this.handleDelete(payload)
+            );
+        } catch (error) {
+            console.error('[INCIDENT_STORE] Initialization error:', error);
+            system.notify('System initialization failed', 'error');
+        }
     }
 
-    handleRealtime(payload: any) {
-        if (payload.eventType === 'INSERT') {
-            this.all = [payload.new as Incident, ...this.all];
+    private handleInsert(payload: any) {
+        const incident = payload.new as Incident;
+        // Avoid duplicates if already exists
+        if (!this.all.find(i => i.id === incident.id)) {
+            this.all = [incident, ...this.all];
             system.notify('New Tactical Event Detected', 'info');
-        } else if (payload.eventType === 'UPDATE') {
-            this.all = this.all.map(i => i.id === payload.new.id ? (payload.new as Incident) : i);
-        } else if (payload.eventType === 'DELETE') {
-            this.all = this.all.filter(i => i.id !== payload.old.id);
         }
+    }
+
+    private handleUpdate(payload: any) {
+        this.all = this.all.map(i => i.id === payload.new.id ? (payload.new as Incident) : i);
+    }
+
+    private handleDelete(payload: any) {
+        this.all = this.all.filter(i => i.id !== payload.old.id);
     }
 
     select(id: string | null) {
@@ -70,6 +92,14 @@ class IncidentStore {
 
     setMissionId(id: string | null) {
         this.filterMissionId = id;
+    }
+
+    // Cleanup method for proper resource management
+    destroy() {
+        if (this.realtimeSub) {
+            this.realtimeSub.unsubscribe();
+            this.realtimeSub = null;
+        }
     }
 }
 

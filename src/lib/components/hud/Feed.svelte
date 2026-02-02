@@ -36,48 +36,54 @@
             <label for="mission-select" class="text-[10px] font-black uppercase text-brand-muted tracking-widest flex items-center gap-2">
                 <Target size={12} /> Operational Scope
             </label>
-            <button 
-                onclick={() => system.triggerSync(true)}
-                class="text-[9px] font-black text-zinc-500 hover:text-brand-accent flex items-center gap-1.5 uppercase transition-colors"
-            >
-                <Zap size={10} class={system.isSyncing ? 'animate-pulse text-brand-accent' : ''} />
-                Scan
-            </button>
+            <div class="flex items-center gap-3">
+                 {#if selectedMissionId}
+                    <button 
+                        onclick={() => selectMission(null)}
+                        class="text-[9px] font-bold text-zinc-500 hover:text-white uppercase transition-colors flex items-center gap-1"
+                        title="Clear Scope"
+                    >
+                        <span>Clear</span>
+                    </button>
+                    <div class="w-px h-2 bg-zinc-800"></div>
+                {/if}
+                <button 
+                    onclick={() => system.triggerSync(true)}
+                    class="text-[9px] font-black text-zinc-500 hover:text-brand-accent flex items-center gap-1.5 uppercase transition-colors"
+                >
+                    <Zap size={10} class={system.isSyncing ? 'animate-pulse text-brand-accent' : ''} />
+                    Scan
+                </button>
+            </div>
         </div>
         
         <div class="space-y-1.5 max-h-56 overflow-y-auto custom-scrollbar pr-1">
-            <button
-                class="w-full text-left px-3 py-2 text-[10px] font-bold uppercase border rounded-sm transition-all flex justify-between items-center
-                    {selectedMissionId === null 
-                        ? 'bg-brand-accent/10 border-brand-accent text-brand-accent' 
-                        : 'border-zinc-800/50 text-zinc-500 hover:bg-white/5 hover:text-zinc-300'}
-                "
-                onclick={() => selectMission(null)}
-            >
-                <span class="tracking-widest">Global Signal</span>
-                <span class="text-[8px] font-mono opacity-50">{incidentStore.all.length}</span>
-            </button>
-            
-            {#each missions as m}
-                <button
-                    class="w-full text-left px-3 py-2 text-[10px] font-bold uppercase border rounded-sm transition-all
-                        {selectedMissionId === m.id 
-                            ? 'bg-brand-accent/10 border-brand-accent text-brand-accent shadow-[0_0_10px_rgba(255,62,62,0.1)]' 
-                            : 'border-zinc-800/50 text-zinc-500 hover:bg-white/5 hover:text-zinc-300'}
-                    "
-                    onclick={() => selectMission(m.id)}
-                >
-                    <div class="flex justify-between items-center">
-                        <span class="truncate pr-2 tracking-widest">{m.name}</span>
-                        <div class="flex items-center gap-2 shrink-0">
-                            <span class="text-[8px] font-mono opacity-50">
-                                {incidentStore.all.filter(i => (i as any).tags?.includes(`mission:${m.id}`)).length}
-                            </span>
-                            <div class="w-1.5 h-1.5 rounded-full {m.status === 'active' ? 'bg-emerald-500' : 'bg-zinc-700'}"></div>
+             {#if missions.length === 0}
+                <div class="px-3 py-4 border border-zinc-800/50 border-dashed rounded-sm text-center">
+                    <span class="text-[9px] text-zinc-600 font-mono uppercase">No Active Missions</span>
+                </div>
+            {:else}
+                {#each missions as m}
+                    <button
+                        class="w-full text-left px-3 py-2 text-[10px] font-bold uppercase border rounded-sm transition-all
+                            {selectedMissionId === m.id 
+                                ? 'bg-brand-accent/10 border-brand-accent text-brand-accent shadow-[0_0_10px_rgba(255,62,62,0.1)]' 
+                                : 'border-zinc-800/50 text-zinc-500 hover:bg-white/5 hover:text-zinc-300'}
+                        "
+                        onclick={() => selectMission(selectedMissionId === m.id ? null : m.id)}
+                    >
+                        <div class="flex justify-between items-center">
+                            <span class="truncate pr-2 tracking-widest">{m.name}</span>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <span class="text-[8px] font-mono opacity-50">
+                                    {incidentStore.all.filter(i => (i as any).tags?.includes(`mission:${m.id}`)).length}
+                                </span>
+                                <div class="w-1.5 h-1.5 rounded-full {m.status === 'active' ? 'bg-emerald-500' : 'bg-zinc-700'}"></div>
+                            </div>
                         </div>
-                    </div>
-                </button>
-            {/each}
+                    </button>
+                {/each}
+            {/if}
         </div>
     </div>
 

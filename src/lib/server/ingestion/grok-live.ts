@@ -97,11 +97,19 @@ export async function queryGrokLiveSearch(keywords: string[]): Promise<GrokIntel
   return JSON.parse(rawContent.replace(/```json|```/g, '').trim());
 }
 
+/**
+ * Generates a content-based deduplication hash (NOT time-based)
+ * Uses normalized title, category, and location (if available)
+ * Time component removed to ensure same incident always gets same hash
+ */
 function generateDedupHash(incident: GrokIntelResult['incidents'][0]): string {
-  const now = new Date();
-  const timeBlock = `${now.toISOString().split('T')[0]}_H${now.getHours()}_M${Math.floor(now.getMinutes() / 30)}`;
-  const locationKey = incident.lat && incident.lon ? `${incident.lat.toFixed(1)},${incident.lon.toFixed(1)}` : 'unknown';
-  const content = `${incident.category}:${incident.title}:${locationKey}:${timeBlock}`;
+  const normalizedTitle = incident.title.toLowerCase().replace(/\s+/g, ' ').trim();
+  const locationKey = incident.lat && incident.lon 
+    ? `${incident.lat.toFixed(2)},${incident.lon.toFixed(2)}` 
+    : 'unknown';
+  
+  // Content-only hash (no timestamp) for true deduplication
+  const content = `${incident.category}:${normalizedTitle}:${locationKey}`;
   return `grok:${crypto.createHash('sha256').update(content).digest('hex').slice(0, 16)}`;
 }
 
@@ -111,35 +119,44 @@ function generateDedupHash(incident: GrokIntelResult['incidents'][0]): string {
  * missionId: (Optional) The UUID of the mission that triggered this search.
  */
 export async function ingestFromGrokLive(keywords: string[], missionId?: string) {
-  const result = await queryGrokLiveSearch(keywords);
-  const stats = { processed: 0, inserted: 0, duplicates: 0, errors: 0 };
+  try {
+    const result = await queryGrokLiveSearch(keywords);
+    const stats = { processed: 0, inserted: 0, duplicates: 0, errors: 0 };
 
-  for (const incident of result.incidents || []) {
-    stats.processed++;
-    try {
-      // Tags include the mission ID if provided
-      const tags = missionId ? [`mission:${missionId}`] : [];
-      
-      const { success, duplicate } = await persistIncident(
-        {
-          ...incident,
-          source_hash: incident.dedup_key || generateDedupHash(incident),
-          tags
-        },
-        incident.source_posts.map(p => ({
-          source: `X.com/@${p.author}`,
-          content: p.content,
-          metadata: { ...p, platform: 'x.com' }
-        }))
-      );
+    for (const incident of result.incidents || []) {
+      stats.processed++;
+      try {
+        // Tags include the mission ID if provided
+        const tags = missionId ? [`mission:${missionId}`] : [];
+        
+        const { success, duplicate } = await persistIncident(
+          {
+            ...incident,
+            source_hash: incident.dedup_key || generateDedupHash(incident),
+            tags
+          },
+          incident.source_posts.map(p => ({
+            source: `X.com/@${p.author}`,
+            content: p.content,
+            metadata: { ...p, platform: 'x.com' }
+          }))
+        );
 
-      if (duplicate) stats.duplicates++;
-      else if (success) stats.inserted++;
-    } catch (err: any) {
-      stats.errors++;
-      console.error(`[GROK-LIVE] Error: ${err.message}`);
+        if (duplicate) stats.duplicates++;
+        else if (success) stats.inserted++;
+      } catch (err: any) {
+        stats.errors++;
+        console.error(`[GROK-LIVE] Error processing incident:`, {
+          error: err.message,
+          title: incident.title,
+          timestamp: new Date().toISOString()
+        });
+      }
     }
-  }
 
-  return { success: true, stats, metadata: result.search_metadata };
+    return { success: true, stats, metadata: result.search_metadata };
+  } catch (error) {
+    console.error('[GROK-LIVE] Fatal error during ingestion:', error);
+    throw error;
+  }
 }

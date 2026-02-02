@@ -54,7 +54,7 @@
     onMount(loadMissions);
 </script>
 
-<div class="h-full flex flex-col bg-transparent overflow-hidden">
+<div class="h-full flex flex-col bg-brand-dark overflow-hidden border-l border-brand-border">
     <!-- Header -->
     <header class="p-4 border-b border-brand-border bg-zinc-950/50 shrink-0 backdrop-blur">
         <div class="flex justify-between items-center">

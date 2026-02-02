@@ -2,7 +2,7 @@
     import { onMount } from 'svelte';
     import { supabase } from '$lib/supabase/client';
     import SeverityBadge from '$lib/components/SeverityBadge.svelte';
-    import { Search, Database, Archive, Clock, MapPin, Tag } from 'lucide-svelte';
+    import { Search, Database, Archive, Clock, MapPin, Tag, Loader2 } from 'lucide-svelte';
     import { incidentStore } from '$lib/incidents.svelte';
 
     let incidents = $state<any[]>([]);
@@ -29,7 +29,12 @@
     onMount(fetchHistory);
 </script>
 
-<div class="h-full flex flex-col bg-transparent overflow-hidden">
+<div class="h-full flex flex-col bg-brand-dark overflow-hidden border-l border-brand-border">
+    {#if loading && incidents.length === 0}
+        <div class="absolute inset-0 z-50 bg-black/50 backdrop-blur flex items-center justify-center">
+            <Loader2 size={24} class="animate-spin text-brand-accent" />
+        </div>
+    {/if}
     <!-- Header: Consistent with Tactical HUD Design -->
     <header class="p-4 border-b border-brand-border bg-zinc-950/50 flex flex-col gap-4 shrink-0 backdrop-blur">
         <div class="flex justify-between items-center">

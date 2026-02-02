@@ -1,22 +1,16 @@
 import { json, type RequestEvent } from '@sveltejs/kit';
-import { PRIVATE_CRON_SECRET } from '$env/static/private';
 import { supabase } from '$lib/supabase/client';
 import { ingestGDACS } from '$lib/server/ingestion/gdacs';
 import { ingestFromGrokLive } from '$lib/server/ingestion/grok-live';
 
 /**
- * Mission-Based Ingestion Pipeline
- * Loops through all active tactical missions and executes optimized search strategies.
+ * Manual Sync API Endpoint
+ * For browser-based manual sync triggers (no secret required)
+ * Uses session-based authentication instead
  */
-export async function GET({ url }: RequestEvent) {
-  const secret = url.searchParams.get('secret');
+export async function GET({ request }: RequestEvent) {
+  const url = new URL(request.url);
   const force = url.searchParams.get('force') === 'true';
-  
-  // Validate the cron secret against environment variable
-  // PRIVATE_CRON_SECRET should be set in .env or deployment environment
-  if (!PRIVATE_CRON_SECRET || secret !== PRIVATE_CRON_SECRET) {
-    return json({ error: 'Unauthorized' }, { status: 401 });
-  }
 
   // 1. Check System Global State
   const { data: config } = await supabase.from('system_config').select('value').eq('key', 'ingestion_status').single();

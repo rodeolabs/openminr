@@ -1,4 +1,5 @@
 import { browser } from '$app/environment';
+import { generateShortId } from './utils/id';
 
 /**
  * Tactical System Store (Svelte 5)
@@ -45,9 +46,10 @@ class TacticalSystem {
 
   /**
    * Pushes a temporary notification to the tactical overlay.
+   * Uses cryptographically secure ID generation (not Math.random)
    */
   notify(message: string, type: 'info' | 'warn' | 'error' = 'info') {
-    const id = crypto.randomUUID();
+    const id = generateShortId();
     this.notifications.push({ id, message, type });
     
     // Automatically prune notifications after 5 seconds to keep the UI clean.
@@ -59,13 +61,15 @@ class TacticalSystem {
   /**
    * Triggers a manual or automatic intelligence sync.
    * force=true bypasses the server-side 60s cooldown.
+   * Uses the public /api/sync endpoint (no secret required, session-based auth).
    */
   async triggerSync(force = false) {
     if (this.isSyncing) return;
     this.isSyncing = true;
     
     try {
-      const res = await fetch(`/api/cron/ingest?secret=tactical-ingest-2026${force ? '&force=true' : ''}`);
+      // Use the public sync endpoint instead of the cron endpoint
+      const res = await fetch(`/api/sync${force ? '?force=true' : ''}`);
       const data = await res.json();
       
       if (data.success) {

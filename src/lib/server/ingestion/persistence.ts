@@ -1,5 +1,9 @@
 import { supabase } from '$lib/supabase/client';
 
+/**
+ * Input interface for persisting a new tactical incident
+ * Used by ingestion sources (Grok, GDACS, Manual)
+ */
 export interface TacticalIncident {
   title: string;
   description: string;
@@ -12,7 +16,11 @@ export interface TacticalIncident {
   tags?: string[];
 }
 
-export interface IntelReport {
+/**
+ * Input interface for creating an intel report
+ * Differs from the full IntelReport type (in types.ts) which includes DB fields
+ */
+export interface IntelReportInput {
   source: string;
   content: string;
   metadata?: Record<string, any>;
@@ -20,32 +28,16 @@ export interface IntelReport {
 
 /**
  * Standardized persistence layer for all intelligence sources.
- * Handles deduplication and mission-aware tag merging.
+ * Handles deduplication and mission-aware tag merging using atomic upsert.
+ * 
+ * Uses PostgreSQL ON CONFLICT to prevent race conditions during concurrent ingestion.
  */
-export async function persistIncident(incident: TacticalIncident, reports: IntelReport[]) {
-  // 1. Check for existing incident by source_hash
-  const { data: existing } = await supabase
+export async function persistIncident(incident: TacticalIncident, reports: IntelReportInput[]) {
+  // 1. Atomic Upsert: Insert with conflict resolution on source_hash
+  // This prevents race conditions where two processes might insert the same incident
+  const { data: upsertedIncident, error: upsertError } = await supabase
     .from('incidents')
-    .select('id, tags')
-    .eq('source_hash', incident.source_hash)
-    .maybeSingle();
-
-  if (existing) {
-    // Merge tags to link this incident to the current mission without duplication
-    const mergedTags = Array.from(new Set([...(existing.tags || []), ...(incident.tags || [])]));
-    
-    await supabase
-      .from('incidents')
-      .update({ tags: mergedTags, updated_at: new Date().toISOString() })
-      .eq('id', existing.id);
-      
-    return { success: true, incident: { ...existing, tags: mergedTags }, duplicate: true };
-  }
-
-  // 2. Insert New Incident
-  const { data: newIncident, error: incError } = await supabase
-    .from('incidents')
-    .insert({
+    .upsert({
       title: incident.title.slice(0, 200),
       description: incident.description,
       severity: Math.max(1, Math.min(5, incident.severity)),
@@ -55,17 +47,48 @@ export async function persistIncident(incident: TacticalIncident, reports: Intel
       lon: incident.lon,
       confidence_score: incident.confidence ?? 1.0,
       tags: incident.tags ?? [],
-      source_hash: incident.source_hash
+      source_hash: incident.source_hash,
+      updated_at: new Date().toISOString()
+    }, {
+      onConflict: 'source_hash',
+      ignoreDuplicates: false // Update on conflict to merge tags
     })
     .select()
     .single();
 
-  if (incError) throw incError;
+  if (upsertError) throw upsertError;
 
-  // 3. Insert Supporting Intel Reports
+  // Check if this was an existing record by comparing timestamps
+  // If the record was just created, it won't have the exact same timestamp
+  const isNewRecord = upsertedIncident.created_at === upsertedIncident.updated_at;
+  
+  if (!isNewRecord) {
+    // This was an update (duplicate) - merge the tags
+    // Fetch current tags and merge with new ones
+    const { data: existing } = await supabase
+      .from('incidents')
+      .select('tags')
+      .eq('id', upsertedIncident.id)
+      .single();
+    
+    if (existing) {
+      const mergedTags = Array.from(new Set([...(existing.tags || []), ...(incident.tags || [])]));
+      
+      await supabase
+        .from('incidents')
+        .update({ tags: mergedTags })
+        .eq('id', upsertedIncident.id);
+      
+      return { success: true, incident: { ...upsertedIncident, tags: mergedTags }, duplicate: true };
+    }
+    
+    return { success: true, incident: upsertedIncident, duplicate: true };
+  }
+
+  // 2. Insert Supporting Intel Reports (only for new incidents)
   if (reports.length > 0) {
     const reportsToInsert = reports.map(r => ({
-      incident_id: newIncident.id,
+      incident_id: upsertedIncident.id,
       source: r.source,
       content: r.content,
       metadata: r.metadata ?? {}
@@ -74,5 +97,5 @@ export async function persistIncident(incident: TacticalIncident, reports: Intel
     await supabase.from('intel_reports').insert(reportsToInsert);
   }
 
-  return { success: true, incident: newIncident };
+  return { success: true, incident: upsertedIncident };
 }

@@ -17,6 +17,11 @@
   // View State
   type View = 'monitor' | 'archive' | 'targeting';
   let activeView = $state<View>('monitor');
+  let showMobileSidebar = $state(false);
+
+  $effect(() => {
+    console.log('[VIEW] Active View Changed:', activeView);
+  });
 
   // Automatic Signal Polling
   onMount(() => {
@@ -48,29 +53,59 @@
   </div>
 
   <!-- Top Navigation (Authoritative System Control) -->
-  <HUDHeader bind:view={activeView} />
+  <HUDHeader bind:view={activeView} bind:showMobileSidebar />
 
   <!-- Main Viewport -->
   <div class="flex-1 relative overflow-hidden flex h-full w-full">
     
     <!-- Left Pane: Feed & Mission HUD -->
-    <aside class="w-80 h-full shrink-0 z-20 shadow-2xl border-r border-brand-border">
-        <Feed />
+    <aside 
+        class="
+            fixed inset-y-0 left-0 z-40 bg-brand-dark border-r border-brand-border
+            transform transition-transform duration-300 ease-in-out
+            w-80 h-full shadow-2xl
+            {showMobileSidebar ? 'translate-x-0' : '-translate-x-full'}
+            lg:relative lg:translate-x-0 lg:block lg:shrink-0
+        "
+    >
+        <div class="h-full w-full" onclick={() => showMobileSidebar = false} role="none">
+            <Feed />
+        </div>
     </aside>
 
+    <!-- Overlay for mobile sidebar -->
+    {#if showMobileSidebar}
+        <button 
+            class="fixed inset-0 bg-black/60 z-30 lg:hidden backdrop-blur-sm"
+            onclick={() => showMobileSidebar = false}
+            aria-label="Close Sidebar"
+        ></button>
+    {/if}
+
     <!-- Center Pane: Map / HUD Background -->
-    <main class="flex-1 h-full relative z-10 bg-[#050506]">
+    <main class="flex-1 h-full relative z-10 bg-[#050506] flex flex-col overflow-hidden">
         {#if activeView === 'monitor'}
             <SituationMap />
         {:else if activeView === 'targeting'}
-            <TargetingView />
+            <div class="flex-1 h-full overflow-hidden">
+                <TargetingView />
+            </div>
         {:else if activeView === 'archive'}
-            <ArchiveView />
+            <div class="flex-1 h-full overflow-hidden">
+                <ArchiveView />
+            </div>
         {/if}
     </main>
 
     <!-- Right Pane: Intelligence Dossier -->
-    <aside class="w-96 h-full shrink-0 z-20 shadow-2xl border-l border-brand-border">
+    <aside class="
+        fixed inset-y-0 right-0 z-40 bg-brand-dark border-l border-brand-border
+        transform transition-transform duration-300 ease-in-out
+        w-full sm:w-96 h-full shadow-2xl
+        {incidentStore.selected ? 'translate-x-0' : 'translate-x-full'}
+        lg:relative lg:translate-x-0 lg:block lg:shrink-0
+        {incidentStore.selected ? 'block' : 'hidden lg:block'}
+    ">
         <TacticalDossier incident={incidentStore.selected} />
     </aside>
     
