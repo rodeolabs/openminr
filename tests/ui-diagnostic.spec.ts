@@ -21,7 +21,7 @@ test('UI Diagnostic Test', async ({ page }) => {
   await expect(page.locator('nav')).toBeVisible();
   
   // Switch to Targeting view to find tactical-grid
-  await page.getByRole('button', { name: 'Targeting' }).click();
+  await page.getByRole('button', { name: 'Targeting', exact: true }).click();
   await page.waitForTimeout(500);
   
   // Now check for tactical grid container (on Targeting view)
