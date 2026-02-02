@@ -34,7 +34,7 @@ export async function queryGrokLiveSearch(keywords: string[]): Promise<GrokIntel
       'Authorization': `Bearer ${GROK_API_KEY}`
     },
     body: JSON.stringify({
-      model: 'grok-4-1-fast-non-reasoning',
+      model: 'grok-4-fast',
       tools: [{ type: 'x_search' }],
       input: [
         {
