@@ -77,13 +77,22 @@
         return report.source;
     }
 
-    // Get severity badge class
-    function getSeverityBadgeClass(severity: number): string {
-        if (severity === 1) return 'severity-badge-1';
-        if (severity === 2) return 'severity-badge-2';
-        if (severity === 3) return 'severity-badge-3';
-        if (severity === 4) return 'severity-badge-4';
-        return 'severity-badge-5';
+    // Get priority badge class
+    function getPriorityBadgeClass(severity: number): string {
+        if (severity === 1) return 'priority-badge-1';
+        if (severity === 2) return 'priority-badge-2';
+        if (severity === 3) return 'priority-badge-3';
+        if (severity === 4) return 'priority-badge-4';
+        return 'priority-badge-4';
+    }
+
+    // Get priority label
+    function getPriorityLabel(severity: number): string {
+        if (severity === 1) return 'P1';
+        if (severity === 2) return 'P2';
+        if (severity === 3) return 'P3';
+        if (severity === 4) return 'P4';
+        return 'P4';
     }
 </script>
 
@@ -110,8 +119,8 @@
                         <span class="px-1.5 sm:px-2 py-0.5 text-label-sm font-bold bg-white/5 border border-white/10 rounded-sm uppercase text-zinc-400">
                             {incident.domain || 'UNCATEGORIZED'}
                         </span>
-                        <span class="px-1.5 sm:px-2 py-0.5 text-label-sm font-bold rounded-sm uppercase {getSeverityBadgeClass(incident.severity)}">
-                            SEV {incident.severity}
+                        <span class="px-1.5 sm:px-2 py-0.5 text-label-sm font-bold rounded-sm uppercase {getPriorityBadgeClass(incident.severity)}">
+                            {getPriorityLabel(incident.severity)}
                         </span>
                     </div>
                 </div>
@@ -173,10 +182,10 @@
                                             href={url}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            class="shrink-0 text-label-sm text-zinc-400 hover:text-white flex items-center gap-1 transition-colors"
+                                            class="shrink-0 px-3 py-1 bg-brand-accent/10 border border-brand-accent/50 text-brand-accent hover:bg-brand-accent hover:text-black text-[9px] font-black uppercase tracking-wider rounded-sm transition-all flex items-center gap-1.5"
                                         >
                                             <ExternalLink size={10} />
-                                            View
+                                            Open Source
                                         </a>
                                     {/if}
                                 </div>

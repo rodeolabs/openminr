@@ -6,9 +6,9 @@
 export const CONFIG = {
   // Ingestion settings
   INGESTION: {
-    // Max incidents to process per batch
-    MAX_GDACS_ITEMS: 5,
-    MAX_GROK_RESULTS: 5,
+    // Max incidents to process per batch (reduced for testing with single mission)
+    MAX_GDACS_ITEMS: 3,
+    MAX_GROK_RESULTS: 3,
     
     // Cooldown between API calls (ms)
     GROK_CALL_DELAY: 1000,
@@ -24,11 +24,11 @@ export const CONFIG = {
   // Database settings
   DATABASE: {
     // Pagination limits
-    DEFAULT_PAGE_SIZE: 100,
-    MAX_PAGE_SIZE: 500,
+    DEFAULT_PAGE_SIZE: 50,
+    MAX_PAGE_SIZE: 100,
     
     // Incident feed limits
-    INITIAL_FEED_LIMIT: 100,
+    INITIAL_FEED_LIMIT: 50,
     SEARCH_RESULTS_LIMIT: 20,
     
     // Text field limits
@@ -45,12 +45,12 @@ export const CONFIG = {
     TIME_WINDOW_HOURS: 24
   },
   
-  // Severity levels
-  SEVERITY: {
-    CRITICAL: { min: 1, max: 2, label: 'Critical', color: '#ef4444' },
-    HIGH: { min: 3, max: 3, label: 'High', color: '#f59e0b' },
-    MEDIUM: { min: 4, max: 4, label: 'Medium', color: '#eab308' },
-    LOW: { min: 5, max: 5, label: 'Low', color: '#6b7280' }
+  // Priority levels (P1-P4 system)
+  PRIORITY: {
+    P1: { level: 1, label: 'P1', text: 'CRITICAL', color: '#ef4444', severity: 1 },
+    P2: { level: 2, label: 'P2', text: 'HIGH', color: '#f97316', severity: 2 },
+    P3: { level: 3, label: 'P3', text: 'MEDIUM', color: '#eab308', severity: 3 },
+    P4: { level: 4, label: 'P4', text: 'LOW', color: '#3b82f6', severity: 4 }
   },
   
   // Map settings

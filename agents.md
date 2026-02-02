@@ -1,125 +1,128 @@
 # OpenMinr: Tactical Situational Awareness Platform
 
-OpenMinr is a high-integrity, real-time event detection and alerting platform.
+A high-integrity, real-time event detection and alerting platform.
 
-## 1. Core Principles
-- **Real-time Tactical Intelligence**: Sub-second propagation via Supabase Realtime.
-- **AI-Native Ingestion**: Using xAI Grok with Structured Outputs (JSON Schema) for guaranteed extraction integrity.
-- **Lean Architecture**: Centralized persistence and system-wide reactive state management.
-- **Command Center Aesthetic**: Data-dense UI with scanline animations and discrete tactical grids.
-- **Zero Hardcoded Values**: All configuration, credentials, and user data must come from environment variables, user input, or persistent storage.
+## Technical Stack
+- **Frontend**: Svelte 5 (Runes) + Tailwind CSS v4
+- **Backend**: Supabase (PostgreSQL, Realtime, RLS)
+- **Intelligence**: xAI Grok with JSON Schema output
+- **Testing**: MCP (Model Context Protocol) + Playwright
 
-## 2. Technical Stack
-- **Frontend**: Svelte 5 (Runes) with Tailwind CSS (Tactical Theme).
-- **Backend**: Supabase (PostgreSQL, Realtime, RLS).
-- **Intelligence**: xAI Grok (Grok-4) with Live Search and JSON Schema support.
+## Core Principles
+- **Real-time Tactical Intelligence**: Sub-second propagation via Supabase Realtime
+- **AI-Native Ingestion**: Grok extracts `headline`, `category`, `priority`, `tactical_summary` using strict JSON Schema
+- **Zero Hardcoded Values**: All configuration/credentials from env vars or persistent storage
+- **Priority System**: P1-P4 (not S1-S5), P1 = Critical
 
-## 3. Data Flow
-1. **Ingest**: Sequential triggers for Grok (Primary) and GDACS (Secondary).
-2. **Analysis**: Grok extracts `headline`, `category`, `severity`, and `tactical_summary` using strict JSON Schema.
-3. **Persist**: Centralized `persistence.ts` handles deduplication (`source_hash`) and atomic inserts.
-4. **Broadcast**: Supabase Realtime notifies the "Situation Room" UI via a custom `realtime.ts` wrapper.
+## Data Flow
+1. **Ingest**: AI-powered collection via Grok API using operational scope keywords
+2. **Analysis**: Structured JSON extraction with guaranteed integrity
+3. **Persist**: `lib/server/ingestion/persistence.ts` handles deduplication (`source_hash`) and atomic inserts
+4. **Broadcast**: Supabase Realtime notifies the Situation Room UI
 
-## 4. Analyst Workflow (The J2/J3 Loop)
-- **Monitor**: Live feed with pulsing "Critical" alerts and tactical audio cues.
-- **Claim**: Analysts take ownership of events to prevent redundant efforts.
-- **Annotate**: Persistent notes for shared situational awareness.
-- **Escalate/Resolve**: Standardized lifecycle for all tactical events.
+## Testing Strategy (MCP Primary)
 
-## 5. Implementation Mandates (Developer/Agent)
-- **Strict Runes**: Use `$state`, `$derived`, and `$effect` for all reactivity. No legacy Svelte 4 habits.
-- **Standardized Ingestion**: Always use `persistIncident` from `lib/server/ingestion/persistence.ts`.
-- **System Store**: Access global states (Sync, Online, Notifications) via the `system` store in `lib/system.svelte.ts`.
-- **Structured AI**: Always use `json_schema` response format for AI calls. Never rely on raw text parsing or JSON Mode hacks.
-- **Tactical UI**: Adhere to the design system specified in `DESIGN_SYSTEM.md`. Use `tactical-scan` and `tactical-grid` classes for high-integrity visual consistency.
+### MCP (Model Context Protocol)
+Primary testing method using Supabase MCP tools:
 
-## 6. STRICT PROHIBITIONS (Zero Tolerance)
-
-### 6.1 NO Hardcoded Values
-- **NEVER** hardcode API keys, credentials, or secrets in source code
-- **NEVER** hardcode user IDs (e.g., `analystId = 'ANALYST-01'` or `analystId = 'OP-01'`)
-- **NEVER** hardcode placeholder values (e.g., `'PLACEHOLDER'`, `'example'`, `'test'`)
-- **NEVER** hardcode configuration values that should be environment-specific
-
-**Correct Approach:**
 ```typescript
-// WRONG - HARDCODED
-let analystId = 'ANALYST-01';  // NEVER DO THIS
+// Test database state directly
+await supabase.execute_sql('SELECT * FROM incidents WHERE priority = 1')
 
-// CORRECT - From persistent storage or user input
-let analystId = $state('');
+// Test component behavior with empty states
+// Verify P1-P4 priority system
+// Check terminology consistency
+```
+
+**Use MCP for:**
+- Database state verification
+- Data integrity validation
+- API response testing
+- Business logic verification
+
+### Playwright (E2E Secondary)
+Use for UI interaction validation only:
+
+```bash
+npm run test:e2e
+```
+
+**Use Playwright for:**
+- User workflow simulation
+- Component rendering verification
+- Navigation testing
+
+### Testing Without Data
+- Verify empty states display correctly
+- Test loading skeletons and "Scanning Signal" placeholders
+- **NEVER manually insert fake data** (see Prohibitions)
+- Create operational scopes to trigger real AI ingestion for data-dependent tests
+
+## Prohibitions (Zero Tolerance)
+
+### No Hardcoded Values
+```typescript
+// WRONG
+let analystId = 'ANALYST-01'
+const apiKey = process.env.API_KEY || 'fallback'
+
+// CORRECT
+let analystId = $state('')
 $effect(() => {
-  if (browser) {
-    let id = localStorage.getItem('analyst_id');
-    if (!id) {
-      id = generateUUID();
-      localStorage.setItem('analyst_id', id);
-    }
-    analystId = id;
-  }
-});
+  analystId = localStorage.getItem('analyst_id') || generateUUID()
+})
+
+const apiKey = process.env.API_KEY
+if (!apiKey) throw new Error('API_KEY required')
 ```
 
-### 6.2 NO Fallback Values for Critical Configuration
-- **NEVER** use `|| 'fallback'` for required environment variables
-- **NEVER** use `|| 'PLACEHOLDER'` patterns
-- **NEVER** provide default values for credentials or API keys
-
-**Correct Approach:**
-```typescript
-// WRONG - FALLBACK
-const apiKey = process.env.API_KEY || 'dummy-key';  // NEVER DO THIS
-
-// CORRECT - Required with error
-const apiKey = process.env.API_KEY;
-if (!apiKey) {
-  throw new Error('API_KEY environment variable is required');
-}
-```
-
-### 6.3 NO Workarounds or Shortcuts
-- **NEVER** implement temporary workarounds "just for now"
-- **NEVER** use `setTimeout` hacks to fix race conditions
-- **NEVER** disable security features for convenience
-- **NEVER** use `any` types to bypass TypeScript checks
-- **NEVER** skip error handling with empty catch blocks
-
-**Correct Approach:**
-- Fix the root cause of issues
-- Implement proper error handling
-- Use proper TypeScript types
-- Follow security best practices always
-
-### 6.4 NO Fake/Test Data in Production
-- **NEVER** commit test data, fake incidents, or dummy missions
+### No Fake/Test Data
+- **NEVER** commit test data, dummy missions, or placeholder incidents
+- **NEVER** manually insert test data into database
 - **NEVER** use `if (isDevelopment)` blocks to bypass production checks
-- Database should only contain real data in production
+- All data must come from AI API calls via ingestion pipeline
 
-## 7. Code Review Checklist
-Before committing code, verify:
-- [ ] No hardcoded strings that should be configurable
-- [ ] No hardcoded IDs (user, analyst, system)
-- [ ] No `|| 'placeholder'` or `|| 'fallback'` patterns for critical values
-- [ ] All credentials come from environment variables
-- [ ] No test data mixed with production code
-- [ ] All error cases handled properly (no empty catches)
-- [ ] TypeScript types are strict (no `any`)
-- [ ] All security policies enforced (no bypasses)
+### No Workarounds
+- No `setTimeout` hacks for race conditions (fix root cause)
+- No `any` types (use strict TypeScript)
+- No empty catch blocks (proper error handling required)
 
-## 8. Consequences of Violations
-Code violating these prohibitions will be:
-1. Rejected in code review
-2. Reverted if discovered in main branch
-3. Flagged as technical debt requiring immediate remediation
+## Terminology Standards
 
-## 9. Authentication Strategy (Future)
-Until authentication is implemented:
-- Generate unique analyst IDs using `generateUUID()`
-- Store in `localStorage` for session persistence
-- Pass as required prop to components (no defaults)
-- Display loading states while ID is being initialized
+| Term | Never Use | Context |
+|------|-----------|---------|
+| **Signal** | Alert, Severity | Detected events |
+| **Operational Scope** | Mission, Vector | Intelligence collection area |
+| **Signal Stream** | Feed | Main intelligence display |
+| **Priority** | Severity | P1-P4 (Critical, High, Medium, Low) |
+| **Operator** | User | Military context |
 
-When authentication is ready:
-- Replace localStorage with auth context
-- Get analystId from authenticated session
-- Maintain same component interface (required prop)
+### Priority System
+| Code | Label | Color |
+|------|-------|-------|
+| P1 | CRITICAL | Red |
+| P2 | HIGH | Orange |
+| P3 | MEDIUM | Yellow |
+| P4 | LOW | Blue |
+
+## Implementation Mandates
+- **Strict Runes**: Use `$state`, `$derived`, `$effect` (no Svelte 4 patterns)
+- **Standardized Ingestion**: Always use `persistIncident` from `lib/server/ingestion/persistence.ts`
+- **System Store**: Access global states via `lib/system.svelte.ts`
+- **Structured AI**: Always use `json_schema` response format, never raw text parsing
+- **Tactical UI**: Use `tactical-scan` and `tactical-grid` classes from `DESIGN_SYSTEM.md`
+
+## Code Review Checklist
+- [ ] No hardcoded IDs, API keys, or placeholder values
+- [ ] No `|| 'fallback'` for required config
+- [ ] All data from AI API (no manual inserts)
+- [ ] No `any` types or empty catch blocks
+- [ ] P1-P4 priority labels throughout
+- [ ] Correct terminology ("Signal" not "Alert", "Operational Scope" not "Mission")
+
+## Authentication Strategy
+**Current**: Generate unique analyst IDs with `generateUUID()`, store in `localStorage`
+**Future**: Replace localStorage with authenticated session, maintain same component interfaces
+
+## Violation Consequences
+Code violating prohibitions will be rejected in review, reverted from main branch, and flagged as technical debt.

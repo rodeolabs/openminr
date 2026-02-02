@@ -1,4 +1,4 @@
-import { supabase } from '$lib/supabase/client';
+import { supabaseAdmin } from '$lib/server/supabase';
 
 /**
  * Input interface for persisting a new tactical incident
@@ -33,9 +33,13 @@ export interface IntelReportInput {
  * Uses PostgreSQL ON CONFLICT to prevent race conditions during concurrent ingestion.
  */
 export async function persistIncident(incident: TacticalIncident, reports: IntelReportInput[]) {
+  console.log(`[PERSIST] Processing incident: "${incident.title.slice(0, 60)}..." | Reports: ${reports.length}`);
+  if (reports.length > 0) {
+    console.log(`[PERSIST] Report sources: ${reports.map(r => r.source).join(', ')}`);
+  }
+  
   // 1. Atomic Upsert: Insert with conflict resolution on source_hash
-  // This prevents race conditions where two processes might insert the same incident
-  const { data: upsertedIncident, error: upsertError } = await supabase
+  const { data: upsertedIncident, error: upsertError } = await supabaseAdmin
     .from('incidents')
     .upsert({
       title: incident.title.slice(0, 200),
@@ -59,13 +63,11 @@ export async function persistIncident(incident: TacticalIncident, reports: Intel
   if (upsertError) throw upsertError;
 
   // Check if this was an existing record by comparing timestamps
-  // If the record was just created, it won't have the exact same timestamp
   const isNewRecord = upsertedIncident.created_at === upsertedIncident.updated_at;
   
   if (!isNewRecord) {
-    // This was an update (duplicate) - merge the tags
-    // Fetch current tags and merge with new ones
-    const { data: existing } = await supabase
+    console.log(`[PERSIST] Duplicate detected (source_hash: ${incident.source_hash}) - merging tags, skipping reports`);
+    const { data: existing } = await supabaseAdmin
       .from('incidents')
       .select('tags')
       .eq('id', upsertedIncident.id)
@@ -74,7 +76,7 @@ export async function persistIncident(incident: TacticalIncident, reports: Intel
     if (existing) {
       const mergedTags = Array.from(new Set([...(existing.tags || []), ...(incident.tags || [])]));
       
-      await supabase
+      await supabaseAdmin
         .from('incidents')
         .update({ tags: mergedTags })
         .eq('id', upsertedIncident.id);
@@ -94,7 +96,27 @@ export async function persistIncident(incident: TacticalIncident, reports: Intel
       metadata: r.metadata ?? {}
     }));
 
-    await supabase.from('intel_reports').insert(reportsToInsert);
+    console.log(`[PERSIST] Inserting ${reportsToInsert.length} intel reports for incident ${upsertedIncident.id}`);
+    console.log(`[PERSIST] Reports data:`, JSON.stringify(reportsToInsert.map(r => ({ source: r.source, hasUrl: !!r.metadata?.url })), null, 2));
+
+    const { data: insertedReports, error: reportsError } = await supabaseAdmin
+      .from('intel_reports')
+      .insert(reportsToInsert)
+      .select();
+
+    if (reportsError) {
+      console.error('[PERSIST] CRITICAL ERROR - Failed to insert intel reports:', {
+        error: reportsError.message,
+        code: reportsError.code,
+        details: reportsError.details,
+        hint: reportsError.hint,
+        incidentId: upsertedIncident.id
+      });
+    } else {
+      console.log(`[PERSIST] SUCCESS - Inserted ${insertedReports?.length || 0} intel reports`);
+    }
+  } else {
+    console.log(`[PERSIST] No intel reports to insert for incident ${upsertedIncident.id}`);
   }
 
   return { success: true, incident: upsertedIncident };

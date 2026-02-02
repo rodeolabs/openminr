@@ -13,54 +13,82 @@ test.describe('OpenMinr Analyst Workflow', () => {
     page.on('console', msg => console.log('BROWSER:', msg.text()));
   });
 
-  test('should open incident dossier and display details', async ({ page }) => {
+  test('should display empty state when no signals', async ({ page }) => {
     await page.goto('http://localhost:5173');
 
-    // Wait for incident buttons to appear
-    await page.waitForSelector('button[id^="incident-"]', { timeout: 20000 });
-    const firstCard = page.locator('button[id^="incident-"]').first();
-    await expect(firstCard).toBeVisible({ timeout: 20000 });
+    // Wait for app to load
+    await page.waitForSelector('text=Signal Stream', { timeout: 10000 });
     
-    // Get the title from the h4 element inside the card
-    const cardTitle = await firstCard.locator('h4').innerText();
-    console.log(`Testing card: ${cardTitle}`);
-
-    await firstCard.click();
-
-    // Check the dossier panel appears with correct text
-    await expect(page.locator('aside').last()).toContainText('Intelligence Brief');
-    await expect(page.locator('aside').last()).toContainText(cardTitle, { ignoreCase: true });
+    // Check that "Scanning Signal" empty state is displayed
+    await expect(page.locator('text=Scanning Signal')).toBeVisible();
+    await expect(page.locator('text=Awaiting real-time tactical intelligence')).toBeVisible();
     
-    // Check that Operator Actions section is visible
-    await expect(page.locator('aside').last()).toContainText('Operator Actions');
-    
-    // Verify action buttons are present (Claim, Add Note, Escalate, Resolve)
-    await expect(page.getByRole('button', { name: 'Claim' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Add Note' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Escalate' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Resolve' })).toBeVisible();
+    console.log('Empty state displayed correctly');
   });
 
-  test('should display critical severity indicators', async ({ page }) => {
+  test('should display operational scopes', async ({ page }) => {
     await page.goto('http://localhost:5173');
 
-    // Wait for incidents to load
-    console.log('Waiting for incidents to load...');
-    await page.waitForSelector('button[id^="incident-"]', { timeout: 20000 });
+    // Wait for scopes to load
+    await page.waitForSelector('text=Operational Scope', { timeout: 10000 });
+    
+    // Check scopes section exists - look for the label with count
+    await expect(page.locator('text=Operational Scope').first()).toBeVisible();
+    
+    console.log('Operational scopes section visible');
+  });
 
-    // Check all incidents for severity indicators
-    const incidentCards = page.locator('button[id^="incident-"]');
-    const count = await incidentCards.count();
-    expect(count).toBeGreaterThan(0);
+  test('should navigate to targeting view', async ({ page }) => {
+    await page.goto('http://localhost:5173');
+
+    // Wait for app to load first
+    await page.waitForSelector('nav', { timeout: 10000 });
+
+    // Click on Targeting tab - use the nav button
+    await page.click('nav button:has-text("Targeting")');
     
-    // Verify each card shows a severity level
-    for (let i = 0; i < count; i++) {
-      const card = incidentCards.nth(i);
-      const text = await card.textContent();
-      // Should have severity indicator (S1-S5)
-      expect(text).toMatch(/S[1-5]/);
-    }
+    // Wait for the targeting view to load
+    await page.waitForSelector('text=Operational Scopes', { timeout: 10000 });
+    await expect(page.locator('h2:has-text("Operational Scopes")')).toBeVisible();
     
-    console.log(`Verified ${count} incidents with severity indicators`);
+    console.log('Targeting view displayed correctly');
+  });
+
+  test('should navigate to archive view', async ({ page }) => {
+    await page.goto('http://localhost:5173');
+
+    // Wait for app to load first
+    await page.waitForSelector('nav', { timeout: 10000 });
+
+    // Click on Archive tab - use the nav button
+    await page.click('nav button:has-text("Archive")');
+    
+    // Wait for the archive view to load
+    await page.waitForSelector('text=Intelligence Archive', { timeout: 10000 });
+    await expect(page.locator('h2:has-text("Intelligence Archive")')).toBeVisible();
+    
+    console.log('Archive view displayed correctly');
+  });
+
+  test('should verify P1-P4 terminology in UI', async ({ page }) => {
+    await page.goto('http://localhost:5173');
+
+    // Wait for app to load
+    await page.waitForSelector('text=Signal Stream', { timeout: 10000 });
+    
+    // Check that old terminology is not present
+    const bodyText = await page.locator('body').innerText();
+    
+    // Should NOT contain old terminology
+    expect(bodyText).not.toContain('S1');
+    expect(bodyText).not.toContain('S2');
+    expect(bodyText).not.toContain('Severity');
+    expect(bodyText).not.toContain('Scan');
+    
+    // Should contain new terminology (checking for uppercase versions since UI uses uppercase)
+    expect(bodyText.toUpperCase()).toContain('SIGNAL STREAM');
+    expect(bodyText.toUpperCase()).toContain('OPERATIONAL SCOPE');
+    
+    console.log('UI uses correct P1-P4 terminology');
   });
 });

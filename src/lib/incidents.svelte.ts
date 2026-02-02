@@ -17,7 +17,7 @@ class IncidentStore {
 
     // Derived State
     filtered = $derived.by(() => {
-        let result = this.all;
+        let result = [...this.all];
         if (this.filterDomain) {
             result = result.filter(i => i.domain === this.filterDomain);
         }
