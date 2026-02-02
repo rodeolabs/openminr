@@ -11,14 +11,14 @@
   } from 'lucide-svelte';
 
   // Svelte 5 Runes: $props() declares the inputs for this component.
-  // Note the default value assignment for analystId and onUpdate.
+  // analystId is REQUIRED - no hardcoded defaults allowed per AGENTS.md
   let { 
     incident, 
-    analystId = 'ANALYST-01', // Placeholder for authenticated user ID
+    analystId,
     onUpdate = () => {}
   } = $props<{ 
     incident: any, 
-    analystId?: string,
+    analystId: string,  // Required - must be provided by parent component
     onUpdate?: () => void 
   }>();
 

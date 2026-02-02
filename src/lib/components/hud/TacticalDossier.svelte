@@ -3,10 +3,27 @@
     import { incidentStore } from '$lib/incidents.svelte';
     import AnalystActions from '$lib/components/AnalystActions.svelte';
     import { MapPin, Clock, Hash, Globe, Activity, Shield, X, ExternalLink, ChevronLeft } from 'lucide-svelte';
+    import { browser } from '$app/environment';
+    import { generateUUID } from '$lib/utils/id';
 
     let { incident } = $props<{ incident: Incident | null }>();
     
     let summary = $derived(incident?.tactical_summary || incident?.description || 'Awaiting intelligence analysis...');
+
+    // Get or create analyst ID for this session
+    // In production, this should come from authentication system
+    let analystId = $state('');
+    
+    $effect(() => {
+        if (browser) {
+            let id = localStorage.getItem('analyst_id');
+            if (!id) {
+                id = generateUUID();
+                localStorage.setItem('analyst_id', id);
+            }
+            analystId = id;
+        }
+    });
 
     // Get severity badge class
     function getSeverityBadgeClass(severity: number): string {
@@ -113,7 +130,13 @@
                 <h3 class="text-label text-zinc-600 mb-3 flex items-center gap-2">
                     <Shield size={12} /> Operator Actions
                 </h3>
-                <AnalystActions incident={incident} analystId="OP-01" />
+                {#if analystId}
+                    <AnalystActions incident={incident} analystId={analystId} />
+                {:else}
+                    <div class="p-4 bg-zinc-900/50 border border-zinc-800 rounded-sm text-center">
+                        <p class="text-label text-zinc-500">Initializing operator session...</p>
+                    </div>
+                {/if}
             </section>
         </div>
 

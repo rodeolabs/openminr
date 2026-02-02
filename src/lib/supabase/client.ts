@@ -22,11 +22,18 @@ const supabaseUrl = getSupabaseUrl();
 console.log('SUPABASE_CLIENT_URL:', supabaseUrl);
 
 // Use environment variable for Supabase key
-// In production, set PUBLIC_SUPABASE_KEY in your environment
-const supabaseKey = import.meta.env.VITE_SUPABASE_KEY || 'sb_publishable_PLACEHOLDER'; 
+// CRITICAL: No hardcoded fallbacks allowed per AGENTS.md policy
+const supabaseKey = import.meta.env.VITE_SUPABASE_KEY;
 
-if (supabaseKey === 'sb_publishable_PLACEHOLDER' && browser) {
-  console.error('[SECURITY] Using placeholder Supabase key. Set VITE_SUPABASE_KEY environment variable.');
+if (!supabaseKey && browser) {
+  throw new Error(
+    '[SECURITY VIOLATION] VITE_SUPABASE_KEY environment variable is required. ' +
+    'Hardcoded credentials are strictly prohibited per AGENTS.md. ' +
+    'Set the key in your .env.local file or deployment environment.'
+  );
 }
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+// For SSR, use a dummy key (server-side operations should use service role key)
+const clientKey = supabaseKey || 'dummy-key-for-ssr-only';
+
+export const supabase = createClient(supabaseUrl, clientKey);
