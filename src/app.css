@@ -45,11 +45,27 @@
 }
 
 @layer components {
-  .severity-1 { @apply border-l-2 border-l-red-600 bg-red-950/5; }
-  .severity-2 { @apply border-l-2 border-l-orange-500 bg-orange-950/5; }
-  .severity-3 { @apply border-l-2 border-l-yellow-400 bg-yellow-950/5; }
-  .severity-4 { @apply border-l-2 border-l-blue-400 bg-blue-950/5; }
-  .severity-5 { @apply border-l-2 border-l-zinc-500 bg-zinc-950/5; }
+  /* Typography Scale - Standardized */
+  .text-label { @apply text-[9px] font-black uppercase tracking-wider; }
+  .text-label-sm { @apply text-[8px] font-black uppercase tracking-wider; }
+  .text-body-sm { @apply text-[11px] font-medium leading-snug; }
+  .text-body { @apply text-[13px] font-normal leading-relaxed; }
+  .text-title { @apply text-[16px] font-bold leading-tight; }
+  .text-headline { @apply text-[20px] font-black leading-none; }
+  
+  /* Severity Colors - Consistent Border-Left Indicators */
+  .severity-1 { @apply border-l-[3px] border-l-red-500 bg-red-950/10; }
+  .severity-2 { @apply border-l-[3px] border-l-orange-500 bg-orange-950/10; }
+  .severity-3 { @apply border-l-[3px] border-l-yellow-400 bg-yellow-950/10; }
+  .severity-4 { @apply border-l-[3px] border-l-blue-400 bg-blue-950/10; }
+  .severity-5 { @apply border-l-[3px] border-l-zinc-500 bg-zinc-950/10; }
+  
+  /* Severity Badge Styles */
+  .severity-badge-1 { @apply bg-red-950/40 text-red-400 border border-red-800/50; }
+  .severity-badge-2 { @apply bg-orange-950/40 text-orange-400 border border-orange-800/50; }
+  .severity-badge-3 { @apply bg-yellow-950/40 text-yellow-400 border border-yellow-800/50; }
+  .severity-badge-4 { @apply bg-blue-950/40 text-blue-400 border border-blue-800/50; }
+  .severity-badge-5 { @apply bg-zinc-900 text-zinc-400 border border-zinc-700; }
 
   /* Domain-Specific Styling */
   .domain-cyber { @apply text-emerald-400 border-emerald-500/50 bg-emerald-950/20; }
@@ -61,4 +77,10 @@
   .hud-panel { @apply bg-brand-dark/95 backdrop-blur-md border-r border-brand-border h-full flex flex-col; }
   .hud-header { @apply h-12 border-b border-brand-border flex items-center px-4 font-mono text-xs uppercase tracking-wider text-brand-muted; }
   .hud-content { @apply flex-1 overflow-y-auto overflow-x-hidden p-0; }
+  
+  /* Interactive States */
+  .btn-hover { @apply transition-all duration-150 hover:scale-[0.98] active:scale-95; }
+  .card-hover { @apply transition-all duration-200 hover:translate-y-[-2px] hover:shadow-lg; }
+  .glow-accent { @apply shadow-[0_0_10px_rgba(255,62,62,0.3)]; }
+  .glow-emerald { @apply shadow-[0_0_10px_rgba(16,185,129,0.3)]; }
 }
