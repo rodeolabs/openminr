@@ -17,8 +17,8 @@
     } = $props<{ view: View, showMobileSidebar?: boolean }>();
 
     const TABS = [
-        { id: 'monitor', label: 'Monitor', icon: LayoutGrid },
         { id: 'targeting', label: 'Targeting', icon: Target },
+        { id: 'monitor', label: 'Monitor', icon: LayoutGrid },
         { id: 'archive', label: 'Archive', icon: Archive }
     ];
 </script>

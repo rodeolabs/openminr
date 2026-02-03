@@ -39,9 +39,12 @@ class TacticalSystem {
   private updateSubscription() {
     if (this.isOnline) {
       incidentStore.subscribe();
+      // Reload incidents when coming back online
+      incidentStore.loadInitialData();
     } else {
       incidentStore.unsubscribe();
-      // Note: We don't clear incidents - user can still view existing data offline
+      // Clear incidents when going offline
+      incidentStore.clear();
     }
   }
 

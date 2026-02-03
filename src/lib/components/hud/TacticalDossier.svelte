@@ -54,6 +54,30 @@
         }
     }
 
+    // Refresh incident data after actions (claim, escalate, resolve, etc.)
+    async function refreshIncident() {
+        if (!incident?.id) return;
+        
+        try {
+            const { data, error } = await supabase
+                .from('incidents')
+                .select('*')
+                .eq('id', incident.id)
+                .single();
+            
+            if (error) throw error;
+            
+            if (data) {
+                // Update the incident in the store
+                incidentStore.all = incidentStore.all.map(i => 
+                    i.id === data.id ? data : i
+                );
+            }
+        } catch (e) {
+            console.error('Failed to refresh incident:', e);
+        }
+    }
+
     // Extract URL from metadata - must be the specific source URL, not a profile
     function getSourceUrl(report: any): string | null {
         // Only return actual source URLs, never construct profile URLs
@@ -224,7 +248,7 @@
                     <Shield size={12} /> Operator Actions
                 </h3>
                 {#if analystId}
-                    <AnalystActions incident={incident} analystId={analystId} />
+                    <AnalystActions incident={incident} analystId={analystId} onUpdate={refreshIncident} />
                 {:else}
                     <div class="p-3 sm:p-4 bg-zinc-900/50 border border-zinc-800 rounded-sm text-center">
                         <p class="text-label text-zinc-500">Initializing operator session...</p>

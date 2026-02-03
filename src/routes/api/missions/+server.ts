@@ -15,7 +15,39 @@ export async function GET() {
   return json({ missions: data });
 }
 
-export async function POST({ request }: { request: Request }) {
+export async function POST({ request, url }: { request: Request; url: URL }) {
+  const path = url.pathname;
+  
+  // Handle regeneration endpoint
+  if (path.endsWith('/regenerate')) {
+    try {
+      const { id, goal } = await request.json();
+      if (!id || !goal) {
+        return json({ error: 'ID and goal required' }, { status: 400 });
+      }
+
+      // Generate new strategy
+      const strategy = await generateMissionStrategy(goal);
+
+      // Update mission with new keywords
+      const { error } = await supabase
+        .from('missions')
+        .update({
+          name: strategy.codename,
+          keywords: strategy.keywords,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+      return json({ success: true, keywords: strategy.keywords });
+
+    } catch (error: any) {
+      return json({ success: false, error: error.message }, { status: 500 });
+    }
+  }
+  
+  // Default: Create new mission
   try {
     const { goal } = await request.json();
     if (!goal) return json({ error: 'Goal required' }, { status: 400 });
@@ -45,10 +77,16 @@ export async function POST({ request }: { request: Request }) {
 
 export async function PATCH({ request }: { request: Request }) {
   try {
-    const { id, status } = await request.json();
+    const { id, status, keywords, goal } = await request.json();
+    
+    const updates: any = { updated_at: new Date().toISOString() };
+    if (status !== undefined) updates.status = status;
+    if (keywords !== undefined) updates.keywords = keywords;
+    if (goal !== undefined) updates.goal = goal;
+    
     const { error } = await supabase
       .from('missions')
-      .update({ status, updated_at: new Date().toISOString() })
+      .update(updates)
       .eq('id', id);
     
     if (error) throw error;

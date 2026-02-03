@@ -1,7 +1,7 @@
 <script lang="ts">
     import { incidentStore } from '$lib/incidents.svelte';
     import { scopeStore } from '$lib/scopes.svelte';
-    import { Radio, Target, Activity, ChevronDown, ChevronRight, Hash, X } from 'lucide-svelte';
+    import { Radio, Activity, ChevronDown, ChevronRight, Hash, X } from 'lucide-svelte';
     import type { Incident } from '$lib/types';
 
     let selectedScopeId = $state<string | null>(null);
@@ -22,27 +22,67 @@
         expandedScopes = newSet;
     }
 
-    // Get incidents grouped by scope
+    // Helper: Get valid scope IDs from the scope store
+    function getValidScopeIds(): string[] {
+        return scopeStore.all.map(s => `mission:${s.id}`);
+    }
+
+    // Check if incident should be shown in Feed (not resolved/dismissed)
+    function isActiveIncident(incident: Incident): boolean {
+        return !['resolved', 'dismissed'].includes(incident.status);
+    }
+
+    // Check if incident belongs to a valid (non-deleted) scope
+    function hasValidScope(incident: Incident): boolean {
+        const validScopeIds = getValidScopeIds();
+        const missionTags = incident.tags?.filter(tag => tag.startsWith('mission:')) || [];
+        // If no mission tags, it's valid (unscoped)
+        if (missionTags.length === 0) return true;
+        // Check if any mission tag is still valid
+        return missionTags.some(tag => validScopeIds.includes(tag));
+    }
+
+    // Get incidents grouped by scope - sorted by priority, then time
+    // Only includes active incidents that belong to valid scopes
     function getScopeIncidents(scopeId: string): Incident[] {
         return incidentStore.all.filter(i => 
-            i.tags?.includes(`mission:${scopeId}`)
-        ).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+            i.tags?.includes(`mission:${scopeId}`) && 
+            isActiveIncident(i) && 
+            hasValidScope(i)
+        ).sort((a, b) => {
+            const priorityDiff = a.severity - b.severity;
+            if (priorityDiff !== 0) return priorityDiff;
+            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        });
     }
 
-    // Get unscoped incidents (not tagged with any mission)
+    // Get unscoped incidents (not tagged with any mission) - sorted by priority, then time
+    // Only includes active incidents
     function getUnscopedIncidents(): Incident[] {
-        const allScopeIds = scopeStore.all.map(s => `mission:${s.id}`);
-        return incidentStore.all.filter(i => 
-            !i.tags?.some(tag => allScopeIds.includes(tag))
-        ).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        return incidentStore.all.filter(i => {
+            // Must be active (not resolved/dismissed)
+            if (!isActiveIncident(i)) return false;
+            // Check if incident has any mission tags
+            const missionTags = i.tags?.filter(tag => tag.startsWith('mission:')) || [];
+            // If no mission tags, it's unscoped
+            if (missionTags.length === 0) return true;
+            // If has mission tags but none are valid (all scopes deleted), it's orphaned - don't show in Feed
+            return !hasValidScope(i);
+        }).sort((a, b) => {
+            const priorityDiff = a.severity - b.severity;
+            if (priorityDiff !== 0) return priorityDiff;
+            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        });
     }
 
-    // Incidents for the "All" view
-    let allIncidents = $derived([...incidentStore.all].sort((a, b) => {
-        const priorityDiff = a.severity - b.severity;
-        if (priorityDiff !== 0) return priorityDiff;
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    }));
+    // Incidents for the "All" view - only active incidents with valid scopes
+    let allIncidents = $derived([...incidentStore.all]
+        .filter(i => isActiveIncident(i) && hasValidScope(i))
+        .sort((a, b) => {
+            const priorityDiff = a.severity - b.severity;
+            if (priorityDiff !== 0) return priorityDiff;
+            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        }));
 
     // Filtered incidents based on selection
     let displayedIncidents = $derived(
@@ -84,51 +124,7 @@
         </div>
     </div>
 
-    <!-- 2. Scope Tabs -->
-    <div class="border-b border-brand-border bg-zinc-950/50 shrink-0">
-        <!-- Horizontal scrollable tabs -->
-        <div class="flex overflow-x-auto custom-scrollbar">
-            <!-- All Signals Tab -->
-            <button
-                class="shrink-0 px-4 py-3 text-[11px] font-bold uppercase tracking-wider border-r border-zinc-800 transition-all whitespace-nowrap flex items-center gap-2
-                    {selectedScopeId === null 
-                        ? 'bg-brand-accent/10 text-brand-accent border-b-2 border-b-brand-accent' 
-                        : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'}"
-                onclick={() => selectScope(null)}
-            >
-                <Target size={12} />
-                All Signals
-                <span class="ml-1 px-1.5 py-0.5 bg-zinc-900 text-zinc-400 rounded text-[9px]">
-                    {allIncidents.length}
-                </span>
-            </button>
-
-            {#each scopeStore.all as scope}
-                {@const scopeIncidents = getScopeIncidents(scope.id)}
-                {@const isSelected = selectedScopeId === scope.id}
-                <button
-                    class="shrink-0 px-4 py-3 text-[11px] font-bold uppercase tracking-wider border-r border-zinc-800 transition-all whitespace-nowrap max-w-[200px] truncate flex items-center gap-2
-                        {isSelected 
-                            ? 'bg-brand-accent/10 text-brand-accent border-b-2 border-b-brand-accent' 
-                            : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'}"
-                    onclick={() => selectScope(scope.id)}
-                    title={scope.goal}
-                >
-                    <div class="w-1.5 h-1.5 rounded-full {scope.status === 'active' ? 'bg-emerald-500' : 'bg-zinc-600'}"></div>
-                    {#if scope.keywords && scope.keywords.length > 0}
-                        <span class="truncate">{scope.keywords[0]}</span>
-                    {:else}
-                        <span class="truncate">Scope {scope.id.slice(0, 6)}</span>
-                    {/if}
-                    <span class="ml-1 px-1.5 py-0.5 bg-zinc-900 text-zinc-400 rounded text-[9px]">
-                        {scopeIncidents.length}
-                    </span>
-                </button>
-            {/each}
-        </div>
-    </div>
-
-    <!-- 3. Active Filter Indicator -->
+    <!-- 2. Active Filter Indicator -->
     {#if selectedScopeId !== null}
         {@const selectedScope = scopeStore.all.find(s => s.id === selectedScopeId)}
         {#if selectedScope}
@@ -188,17 +184,17 @@
                         <div class="border-b border-zinc-800/50">
                             <div class="w-full px-4 py-3 flex items-center justify-between bg-zinc-950/30 hover:bg-zinc-950/50 transition-colors">
                                 <button
-                                    class="flex items-center gap-3 flex-1 text-left"
-                                    onclick={() => toggleScopeExpand(scope.id)}
+                                    class="flex items-center gap-3 flex-1 text-left group"
+                                    onclick={() => selectScope(scope.id)}
                                 >
                                     {#if expandedScopes.has(scope.id)}
-                                        <ChevronDown size={14} class="text-zinc-500" />
+                                        <ChevronDown size={14} class="text-zinc-500 group-hover:text-zinc-400" />
                                     {:else}
-                                        <ChevronRight size={14} class="text-zinc-500" />
+                                        <ChevronRight size={14} class="text-zinc-500 group-hover:text-zinc-400" />
                                     {/if}
                                     <div class="flex items-center gap-2">
                                         <div class="w-1.5 h-1.5 rounded-full {scope.status === 'active' ? 'bg-emerald-500' : 'bg-zinc-600'}"></div>
-                                        <span class="text-[11px] font-bold uppercase tracking-wider text-zinc-300">
+                                        <span class="text-[11px] font-bold uppercase tracking-wider text-zinc-300 group-hover:text-white transition-colors">
                                             {#if scope.keywords && scope.keywords.length > 0}
                                                 {scope.keywords.slice(0, 2).join(', ')}
                                                 {#if scope.keywords.length > 2}
@@ -210,15 +206,6 @@
                                         </span>
                                     </div>
                                 </button>
-                                <div class="flex items-center gap-2">
-                                    <span class="text-[10px] text-zinc-500 font-mono">{scopeIncidents.length} signals</span>
-                                    <button
-                                        onclick={() => selectScope(scope.id)}
-                                        class="px-2 py-1 text-[9px] font-bold uppercase tracking-wider bg-zinc-900 hover:bg-brand-accent hover:text-black text-zinc-400 rounded transition-colors"
-                                    >
-                                        Filter
-                                    </button>
-                                </div>
                             </div>
                             
                             <!-- Scope Incidents (Collapsible) -->
@@ -238,20 +225,17 @@
                 {#if unscoped.length > 0}
                     <div class="border-b border-zinc-800/50">
                         <button
-                            class="w-full px-4 py-3 flex items-center justify-between bg-zinc-950/30 hover:bg-zinc-950/50 transition-colors"
-                            onclick={() => toggleScopeExpand('unscoped')}
+                            class="w-full px-4 py-3 flex items-center gap-3 bg-zinc-950/30 hover:bg-zinc-950/50 transition-colors"
+                            onclick={() => selectScope(null)}
                         >
-                            <div class="flex items-center gap-3">
-                                {#if expandedScopes.has('unscoped')}
-                                    <ChevronDown size={14} class="text-zinc-500" />
-                                {:else}
-                                    <ChevronRight size={14} class="text-zinc-500" />
-                                {/if}
-                                <span class="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
-                                    General Intelligence
-                                </span>
-                            </div>
-                            <span class="text-[10px] text-zinc-500 font-mono">{unscoped.length} signals</span>
+                            {#if expandedScopes.has('unscoped')}
+                                <ChevronDown size={14} class="text-zinc-500" />
+                            {:else}
+                                <ChevronRight size={14} class="text-zinc-500" />
+                            {/if}
+                            <span class="text-[11px] font-bold uppercase tracking-wider text-zinc-400 hover:text-white transition-colors">
+                                General Intelligence
+                            </span>
                         </button>
                         
                         {#if expandedScopes.has('unscoped')}

@@ -94,6 +94,60 @@ class ScopeStore {
             system.notify('Failed to delete scope', 'error');
         }
     }
+
+    async update(id: string, updates: { keywords?: string[], goal?: string }) {
+        const index = this.all.findIndex(s => s.id === id);
+        if (index === -1) return false;
+
+        // Optimistic update
+        const previous = { ...this.all[index] };
+        this.all[index] = { ...this.all[index], ...updates };
+
+        try {
+            const res = await fetch('/api/missions', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, ...updates })
+            });
+            const data = await res.json();
+            
+            if (!data.success) {
+                throw new Error(data.error);
+            }
+            
+            system.notify('Scope updated successfully', 'info');
+            return true;
+        } catch (e) {
+            console.error('Failed to update scope:', e);
+            this.all[index] = previous; // Revert
+            system.notify('Failed to update scope', 'error');
+            return false;
+        }
+    }
+
+    async regenerate(id: string, goal: string) {
+        try {
+            const res = await fetch('/api/missions/regenerate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, goal })
+            });
+            const data = await res.json();
+            
+            if (!data.success) {
+                throw new Error(data.error);
+            }
+            
+            // Reload to get updated keywords
+            await this.load();
+            system.notify('Strategy regenerated successfully', 'info');
+            return true;
+        } catch (e) {
+            console.error('Failed to regenerate strategy:', e);
+            system.notify('Failed to regenerate strategy', 'error');
+            return false;
+        }
+    }
 }
 
 export const scopeStore = new ScopeStore();
