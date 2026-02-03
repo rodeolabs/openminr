@@ -11,6 +11,7 @@ class IncidentStore {
     selectedId = $state<string | null>(null);
     filterDomain = $state<string | null>(null); 
     filterMissionId = $state<string | null>(null);
+    isSubscribed = $state(false);
 
     // Realtime subscription for cleanup
     private realtimeSub: RealtimeSubscription | null = null;
@@ -33,11 +34,11 @@ class IncidentStore {
 
     constructor() {
         if (browser) {
-            this.init();
+            this.loadInitialData();
         }
     }
 
-    async init() {
+    async loadInitialData() {
         try {
             const { data, error } = await supabase
                 .from('incidents')
@@ -52,16 +53,35 @@ class IncidentStore {
             }
             
             if (data) this.all = data as Incident[];
-
-            // Use the realtime wrapper for proper subscription management
-            this.realtimeSub = subscribeToIncidents(
-                (payload) => this.handleInsert(payload),
-                (payload) => this.handleUpdate(payload),
-                (payload) => this.handleDelete(payload)
-            );
         } catch (error) {
             console.error('[INCIDENT_STORE] Initialization error:', error);
             system.notify('System initialization failed', 'error');
+        }
+    }
+
+    // Start realtime subscription
+    subscribe() {
+        if (this.realtimeSub) {
+            console.log('[INCIDENT_STORE] Already subscribed');
+            return;
+        }
+        
+        console.log('[INCIDENT_STORE] Starting realtime subscription');
+        this.realtimeSub = subscribeToIncidents(
+            (payload) => this.handleInsert(payload),
+            (payload) => this.handleUpdate(payload),
+            (payload) => this.handleDelete(payload)
+        );
+        this.isSubscribed = true;
+    }
+
+    // Stop realtime subscription
+    unsubscribe() {
+        if (this.realtimeSub) {
+            console.log('[INCIDENT_STORE] Stopping realtime subscription');
+            this.realtimeSub.unsubscribe();
+            this.realtimeSub = null;
+            this.isSubscribed = false;
         }
     }
 
@@ -96,10 +116,13 @@ class IncidentStore {
 
     // Cleanup method for proper resource management
     destroy() {
-        if (this.realtimeSub) {
-            this.realtimeSub.unsubscribe();
-            this.realtimeSub = null;
-        }
+        this.unsubscribe();
+    }
+
+    // Clear all incidents (called when system goes offline)
+    clear() {
+        this.all = [];
+        this.selectedId = null;
     }
 }
 

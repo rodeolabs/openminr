@@ -62,11 +62,14 @@ export async function persistIncident(incident: TacticalIncident, reports: Intel
 
   if (upsertError) throw upsertError;
 
-  // Check if this was an existing record by comparing timestamps
-  const isNewRecord = upsertedIncident.created_at === upsertedIncident.updated_at;
+  // Check if this was a new insert or an update by comparing timestamps (with tolerance for microsecond differences)
+  const createdTime = new Date(upsertedIncident.created_at).getTime();
+  const updatedTime = new Date(upsertedIncident.updated_at).getTime();
+  const timeDiff = Math.abs(updatedTime - createdTime);
+  const isNewRecord = timeDiff < 1000; // Consider new if timestamps are within 1 second
   
   if (!isNewRecord) {
-    console.log(`[PERSIST] Duplicate detected (source_hash: ${incident.source_hash}) - merging tags, skipping reports`);
+    console.log(`[PERSIST] Duplicate detected (source_hash: ${incident.source_hash}, diff: ${timeDiff}ms) - merging tags, skipping reports`);
     const { data: existing } = await supabaseAdmin
       .from('incidents')
       .select('tags')
@@ -86,6 +89,8 @@ export async function persistIncident(incident: TacticalIncident, reports: Intel
     
     return { success: true, incident: upsertedIncident, duplicate: true };
   }
+  
+  console.log(`[PERSIST] New incident created (source_hash: ${incident.source_hash}, time diff: ${timeDiff}ms)`);
 
   // 2. Insert Supporting Intel Reports (only for new incidents)
   if (reports.length > 0) {
@@ -112,6 +117,14 @@ export async function persistIncident(incident: TacticalIncident, reports: Intel
         hint: reportsError.hint,
         incidentId: upsertedIncident.id
       });
+      
+      // Check for RLS violations
+      if (reportsError.message?.includes('row-level security') || reportsError.code === '42501') {
+        console.error('[PERSIST] RLS POLICY VIOLATION - Ensure intel_reports table has INSERT policy');
+      }
+      
+      // Don't throw - we still want to return the incident even if reports fail
+      // But log the error prominently
     } else {
       console.log(`[PERSIST] SUCCESS - Inserted ${insertedReports?.length || 0} intel reports`);
     }

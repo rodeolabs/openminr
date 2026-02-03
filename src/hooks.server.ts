@@ -32,7 +32,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 			"style-src 'self' 'unsafe-inline'",
 			"img-src 'self' data: blob: https://*.cartocdn.com https://*.basemaps.cartocdn.com",
 			"font-src 'self' data:",
-			"connect-src 'self' http://localhost:54321 https://localhost:54321 ws://localhost:54321 wss://localhost:54321 https://*.supabase.co wss://*.supabase.co https://api.x.ai https://*.cartocdn.com https://*.basemaps.cartocdn.com",
+			"connect-src 'self' http://localhost:54321 https://localhost:54321 ws://localhost:54321 wss://localhost:54321 http://host.docker.internal:54321 https://host.docker.internal:54321 ws://host.docker.internal:54321 wss://host.docker.internal:54321 https://*.supabase.co wss://*.supabase.co https://api.x.ai https://*.cartocdn.com https://*.basemaps.cartocdn.com",
 			"worker-src 'self' blob:",
 			"frame-ancestors 'none'",
 			"base-uri 'self'",

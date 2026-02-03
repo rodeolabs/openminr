@@ -2,16 +2,13 @@
     import { 
         LayoutGrid, 
         Archive, 
-        Crosshair, 
+        Target, 
         Zap, 
         Power,
         Menu,
-        Wifi,
-        WifiOff,
         Loader2
     } from 'lucide-svelte';
     import { system } from '$lib/system.svelte';
-    import { incidentStore } from '$lib/incidents.svelte';
 
     type View = 'monitor' | 'archive' | 'targeting';
     let { 
@@ -21,7 +18,7 @@
 
     const TABS = [
         { id: 'monitor', label: 'Monitor', icon: LayoutGrid },
-        { id: 'targeting', label: 'Targeting', icon: Crosshair },
+        { id: 'targeting', label: 'Targeting', icon: Target },
         { id: 'archive', label: 'Archive', icon: Archive }
     ];
 </script>
@@ -53,13 +50,13 @@
         {#each TABS as tab}
             <button
                 onclick={() => view = tab.id as View}
-                class="flex items-center gap-2 px-3 lg:px-6 py-1.5 rounded-sm text-label font-bold uppercase tracking-wider transition-all btn-hover
+                class="flex items-center gap-2 px-3 lg:px-6 py-2 rounded-sm text-label font-bold uppercase tracking-wider transition-all btn-hover
                     {view === tab.id 
                         ? 'bg-zinc-800 text-white shadow-sm border border-zinc-700' 
                         : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50 border border-transparent'}
                 "
             >
-                <tab.icon size={14} class="shrink-0 {view === tab.id ? 'text-brand-accent' : ''}" />
+                <tab.icon size={16} class="shrink-0 {view === tab.id ? 'text-brand-accent' : ''}" />
                 <span class="inline-block">{tab.label}</span>
             </button>
         {/each}
@@ -69,15 +66,6 @@
     <div class="flex items-center gap-4 w-72 justify-end">
         <!-- Status Indicators -->
         <div class="hidden md:flex items-center gap-3">
-            <!-- Connection Status -->
-            <div class="flex items-center gap-1.5" title="System Connection">
-                {#if system.isOnline}
-                    <Wifi size={12} class="text-emerald-500" />
-                {:else}
-                    <WifiOff size={12} class="text-zinc-600" />
-                {/if}
-            </div>
-
             <!-- Sync Status -->
             {#if system.isSyncing}
                 <div class="flex items-center gap-1.5" title="Data Sync Active">
@@ -86,17 +74,8 @@
                 </div>
             {/if}
 
-            <!-- Incident Count -->
-            <div class="flex items-center gap-1.5" title="Active Incidents">
-                <span class="text-label-sm text-zinc-500">Signals:</span>
-                <span class="text-label text-brand-accent">{incidentStore.all.length}</span>
-            </div>
-
-            <div class="w-px h-4 bg-zinc-800"></div>
-
             <!-- System Status -->
             <div class="flex flex-col items-end">
-                <span class="text-label-sm text-zinc-500">System</span>
                 <span class="text-label {system.isOnline ? 'text-emerald-500' : 'text-zinc-600'}">
                     {system.isOnline ? 'Active' : 'Offline'}
                 </span>

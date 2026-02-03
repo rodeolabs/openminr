@@ -54,25 +54,27 @@
         }
     }
 
-    // Extract URL from metadata or source
+    // Extract URL from metadata - must be the specific source URL, not a profile
     function getSourceUrl(report: any): string | null {
-        // Check metadata for URL
+        // Only return actual source URLs, never construct profile URLs
         if (report.metadata?.url) return report.metadata.url;
         if (report.metadata?.link) return report.metadata.link;
         if (report.metadata?.gdacs_link) return report.metadata.gdacs_link;
         
-        // For X posts, construct URL from handle
-        if (report.source?.includes('X.com') && report.metadata?.author) {
-            return `https://x.com/${report.metadata.author.replace('@', '')}`;
-        }
-        
+        // No URL available - don't show source link
         return null;
     }
 
     // Get display name for source
     function getSourceDisplayName(report: any): string {
         if (report.metadata?.author) {
-            return `${report.source} @${report.metadata.author}`;
+            // Extract clean username from strings like "Cheeky ✞ - @CheekyFren"
+            const author = report.metadata.author;
+            const match = author.match(/@([\w]+)/);
+            if (match) {
+                return `@${match[1]}`;
+            }
+            return author;
         }
         return report.source;
     }
@@ -174,19 +176,19 @@
                             {@const url = getSourceUrl(report)}
                             <div class="p-2 sm:p-3 bg-zinc-900/50 border border-zinc-800 rounded-sm">
                                 <div class="flex justify-between items-start gap-2 mb-1.5">
-                                    <span class="text-label-sm font-mono text-brand-accent truncate">
-                                        {getSourceDisplayName(report)}
-                                    </span>
                                     {#if url}
                                         <a 
                                             href={url}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            class="shrink-0 px-3 py-1 bg-brand-accent/10 border border-brand-accent/50 text-brand-accent hover:bg-brand-accent hover:text-black text-[9px] font-black uppercase tracking-wider rounded-sm transition-all flex items-center gap-1.5"
+                                            class="text-label-sm font-mono text-brand-accent truncate hover:text-brand-accent/80 hover:underline"
                                         >
-                                            <ExternalLink size={10} />
-                                            Open Source
+                                            {getSourceDisplayName(report)}
                                         </a>
+                                    {:else}
+                                        <span class="text-label-sm font-mono text-brand-accent truncate">
+                                            {getSourceDisplayName(report)}
+                                        </span>
                                     {/if}
                                 </div>
                                 <p class="text-label-sm text-zinc-500 line-clamp-2">

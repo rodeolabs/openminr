@@ -1,5 +1,6 @@
 import { browser } from '$app/environment';
 import { generateShortId } from './utils/id';
+import { incidentStore } from './incidents.svelte';
 
 /**
  * Tactical System Store (Svelte 5)
@@ -26,14 +27,30 @@ class TacticalSystem {
       const res = await fetch('/api/system/status');
       const data = await res.json();
       this.isOnline = data.enabled;
+      
+      // Subscribe/unsubscribe based on initial state
+      this.updateSubscription();
     } catch (e) {
       console.error('[SYSTEM] Failed to fetch initial status', e);
+    }
+  }
+
+  // Update realtime subscription based on online state
+  private updateSubscription() {
+    if (this.isOnline) {
+      incidentStore.subscribe();
+    } else {
+      incidentStore.unsubscribe();
+      // Note: We don't clear incidents - user can still view existing data offline
     }
   }
 
   async toggleSystem() {
     const newState = !this.isOnline;
     this.isOnline = newState;
+    
+    // Update subscription immediately
+    this.updateSubscription();
     
     // Optimistic UI update followed by persistence
     await fetch('/api/system/status', { 

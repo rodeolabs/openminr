@@ -24,13 +24,21 @@
 
     const STYLE = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json';
 
-    // Priority configuration aligned with legend
-    const PRIORITIES = {
-        1: { color: '#ef4444', label: 'P1', size: 10 },
-        2: { color: '#f97316', label: 'P2', size: 8 },
-        3: { color: '#eab308', label: 'P3', size: 7 },
-        4: { color: '#3b82f6', label: 'P4', size: 6 }
+    // Priority configuration - dynamic sizing based on zoom
+    const BASE_PRIORITIES = {
+        1: { color: '#ef4444', label: 'P1', baseSize: 10 },
+        2: { color: '#f97316', label: 'P2', baseSize: 8 },
+        3: { color: '#eab308', label: 'P3', baseSize: 6 },
+        4: { color: '#3b82f6', label: 'P4', baseSize: 5 }
     };
+
+    // Get marker size based on current zoom level
+    function getMarkerSize(baseSize: number, zoom: number): number {
+        // Zoom ranges from ~2 (world view) to ~15 (street view)
+        // Make markers bigger when zoomed out, smaller when zoomed in
+        const zoomFactor = Math.max(0.8, Math.min(1.8, 8 / Math.sqrt(zoom)));
+        return Math.round(baseSize * zoomFactor);
+    }
 
     // Update map data when store changes
     $effect(() => {
@@ -56,33 +64,33 @@
                 if (isNaN(lon) || isNaN(lat)) return;
 
                 const isSelected = incidentStore.selectedId === i.id;
-                const priority = PRIORITIES[severity as keyof typeof PRIORITIES];
-                const size = isSelected ? priority.size + 3 : priority.size;
+                const priority = BASE_PRIORITIES[severity as keyof typeof BASE_PRIORITIES];
+                const currentZoom = map?.getZoom() || 5;
+                const baseSize = getMarkerSize(priority.baseSize, currentZoom);
+                const size = isSelected ? baseSize + 4 : baseSize;
                 
                 const container = document.createElement('div');
-                container.className = 'group relative flex items-center justify-center transition-all duration-300';
+                container.className = 'group relative flex items-center justify-center';
                 container.style.cursor = 'pointer';
                 container.style.zIndex = isSelected ? '100' : String(50 - severity);
 
-                // Core Marker - Professional Circle
+                // Core Marker - Clean Professional Circle
                 const dot = document.createElement('div');
-                dot.className = 'relative z-10 transition-all duration-300 ease-out';
                 dot.style.backgroundColor = priority.color;
                 dot.style.width = `${size}px`;
                 dot.style.height = `${size}px`;
                 dot.style.borderRadius = '50%';
-                dot.style.border = '1.5px solid rgba(255,255,255,0.95)';
-                dot.style.boxShadow = isSelected 
-                    ? `0 0 20px ${priority.color}, 0 0 8px ${priority.color}` 
-                    : `0 0 8px ${priority.color}`;
-
-                // Pulse Effect for P1/P2
-                if (severity <= 2 || isSelected) {
-                    const ping = document.createElement('div');
-                    ping.className = 'absolute inset-0 animate-ping opacity-60';
-                    ping.style.backgroundColor = priority.color;
-                    ping.style.borderRadius = '50%';
-                    container.appendChild(ping);
+                
+                // Selection indicator: enhanced glow with multiple layers
+                if (isSelected) {
+                    dot.style.border = '2.5px solid rgba(255,255,255,0.95)';
+                    dot.style.boxShadow = `
+                        0 0 0 3px ${priority.color}60,
+                        0 0 12px 3px ${priority.color}80,
+                        0 0 20px 5px ${priority.color}40
+                    `;
+                } else {
+                    dot.style.border = '1.5px solid rgba(255,255,255,0.8)';
                 }
 
                 // Hover Label
@@ -147,50 +155,48 @@
 
     <!-- Professional Priority Legend -->
     <div class="absolute bottom-6 left-6 z-20 pointer-events-none">
-        <div class="bg-zinc-950/90 backdrop-blur border border-zinc-800 px-3 py-2 rounded-sm flex flex-col gap-2 shadow-2xl pointer-events-auto min-w-[140px]">
-            <div class="flex items-center justify-between gap-4">
-                <h5 class="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Priority Filter</h5>
-                <span class="text-[8px] font-mono text-zinc-600">{incidentStore.filtered.length} SIG</span>
-            </div>
-            
-            <div class="flex flex-col gap-1.5">
+        <div class="bg-zinc-950/90 backdrop-blur border border-zinc-800 px-2 py-1.5 rounded-sm shadow-2xl pointer-events-auto">
+            <div class="flex items-center gap-1">
                 <button 
                     onclick={() => toggleFilter('p1')}
-                    class="flex items-center gap-2 group transition-opacity {filters.p1 ? 'opacity-100' : 'opacity-30'}"
+                    class="flex items-center gap-1.5 px-2 py-1 rounded-sm transition-all hover:bg-zinc-800/50 {filters.p1 ? 'opacity-100' : 'opacity-25'}"
                     title="Toggle P1 Critical"
                 >
-                    <span class="relative flex h-2 w-2">
-                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
-                        <span class="relative inline-flex rounded-full h-2 w-2 bg-red-500 border border-white"></span>
-                    </span>
-                    <span class="text-[9px] font-bold text-red-500 group-hover:text-red-400 uppercase tracking-wider">P1 Critical</span>
+                    <span class="w-1.5 h-1.5 rounded-full bg-red-500 border border-white/80"></span>
+                    <span class="text-[9px] font-bold text-red-500 uppercase tracking-wider">P1</span>
                 </button>
+
+                <div class="w-px h-3 bg-zinc-800"></div>
 
                 <button 
                     onclick={() => toggleFilter('p2')}
-                    class="flex items-center gap-2 group transition-opacity {filters.p2 ? 'opacity-100' : 'opacity-30'}"
+                    class="flex items-center gap-1.5 px-2 py-1 rounded-sm transition-all hover:bg-zinc-800/50 {filters.p2 ? 'opacity-100' : 'opacity-25'}"
                     title="Toggle P2 High"
                 >
-                    <span class="w-2 h-2 rounded-full bg-orange-500 border border-white"></span>
-                    <span class="text-[9px] font-bold text-orange-500 group-hover:text-orange-400 uppercase tracking-wider">P2 High</span>
+                    <span class="w-1.5 h-1.5 rounded-full bg-orange-500 border border-white/80"></span>
+                    <span class="text-[9px] font-bold text-orange-500 uppercase tracking-wider">P2</span>
                 </button>
+
+                <div class="w-px h-3 bg-zinc-800"></div>
 
                 <button 
                     onclick={() => toggleFilter('p3')}
-                    class="flex items-center gap-2 group transition-opacity {filters.p3 ? 'opacity-100' : 'opacity-30'}"
+                    class="flex items-center gap-1.5 px-2 py-1 rounded-sm transition-all hover:bg-zinc-800/50 {filters.p3 ? 'opacity-100' : 'opacity-25'}"
                     title="Toggle P3 Medium"
                 >
-                    <span class="w-1.5 h-1.5 rounded-full bg-yellow-500 border border-white"></span>
-                    <span class="text-[9px] font-bold text-yellow-500 group-hover:text-yellow-400 uppercase tracking-wider">P3 Medium</span>
+                    <span class="w-1.5 h-1.5 rounded-full bg-yellow-500 border border-white/80"></span>
+                    <span class="text-[9px] font-bold text-yellow-500 uppercase tracking-wider">P3</span>
                 </button>
+
+                <div class="w-px h-3 bg-zinc-800"></div>
 
                 <button 
                     onclick={() => toggleFilter('p4')}
-                    class="flex items-center gap-2 group transition-opacity {filters.p4 ? 'opacity-100' : 'opacity-30'}"
+                    class="flex items-center gap-1.5 px-2 py-1 rounded-sm transition-all hover:bg-zinc-800/50 {filters.p4 ? 'opacity-100' : 'opacity-25'}"
                     title="Toggle P4 Low"
                 >
-                    <span class="w-1.5 h-1.5 rounded-full bg-blue-500 border border-white"></span>
-                    <span class="text-[9px] font-bold text-blue-500 group-hover:text-blue-400 uppercase tracking-wider">P4 Low</span>
+                    <span class="w-1.5 h-1.5 rounded-full bg-blue-500 border border-white/80"></span>
+                    <span class="text-[9px] font-bold text-blue-500 uppercase tracking-wider">P4</span>
                 </button>
             </div>
         </div>

@@ -46,6 +46,11 @@ CREATE POLICY "Public Read Incidents" ON incidents FOR SELECT USING (true);
 CREATE POLICY "Analyst Update Incidents" ON incidents FOR UPDATE USING (true); -- In prod, verify auth.uid()
 CREATE POLICY "Analyst Insert Incidents" ON incidents FOR INSERT WITH CHECK (true);
 
+-- Policy: Intel Reports (System Insert, Public Read)
+-- CRITICAL: Required for ingestion pipeline to create source verification links
+CREATE POLICY "Public Read Intel Reports" ON intel_reports FOR SELECT USING (true);
+CREATE POLICY "System Insert Intel Reports" ON intel_reports FOR INSERT WITH CHECK (true);
+
 -- Policy: Notes (Analyst Full Access)
 CREATE POLICY "Analyst Manage Notes" ON analyst_notes FOR ALL USING (true);
 
